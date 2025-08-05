@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Capital de Giro PEAC FGI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1>Calculadora de Capital de Giro PEAC FGI</h1>
+        <p class="subtitle">Agência Empresa Teresina (7625) - Banco do Brasil</p>
+    </header>
+
+    <main>
+        <section id="simulator-form">
+            <form id="loan-form">
+                <h2>Informações da Simulação</h2>
+                
+                <div class="form-group">
+                    <label for="client-name">Cliente:</label>
+                    <input type="text" id="client-name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="client-cnpj">CNPJ:</label>
+                    <input type="text" id="client-cnpj" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="proposal-date">Data da proposta:</label>
+                    <input type="date" id="proposal-date" required>
+                </div>
+
+                <hr>
+
+                <h3>Dados da Operação</h3>
+
+                <div class="form-group">
+                    <label for="loan-amount">Valor a Financiar (R$):</label>
+                    <input type="number" id="loan-amount" step="0.01" placeholder="Ex: 50000.00" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="grace-period">Carência (dias):</label>
+                    <input type="number" id="grace-period" placeholder="Ex: 180" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="first-payment-date">Data 1ª Parcela:</label>
+                    <input type="date" id="first-payment-date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="installments">Parcelas (meses):</label>
+                    <input type="number" id="installments" placeholder="Ex: 24" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="partners-qty">Quantidade de Sócios:</label>
+                    <input type="number" id="partners-qty" placeholder="Ex: 2" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contract-rate">Taxa Contratual (% a.a.):</label>
+                    <input type="number" id="contract-rate" step="0.01" placeholder="Ex: 15.5" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="cdi-rate">CDI anual (% a.a.):</label>
+                    <input type="number" id="cdi-rate" step="0.01" placeholder="Ex: 11.25" required>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="calculate-btn">Simular</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="results-area" class="hidden">
+            <h2>Resultado da Simulação</h2>
+            
+            <div id="summary">
+                <h3>Resumo da Operação</h3>
+                <p><strong>Cliente:</strong> <span id="summary-client-name"></span></p>
+                <p><strong>CNPJ:</strong> <span id="summary-client-cnpj"></span></p>
+                
+                <p><strong>Taxa de Juros Efetiva:</strong> <span id="summary-monthly-rate"></span></p>
+
+                <p><strong>Custo Efetivo Total (CET) ao mês:</strong> <span id="summary-cet-monthly"></span></p>
+                <p><strong>Custo Efetivo Total (CET) ao ano:</strong> <span id="summary-cet-annual"></span></p>
+
+                <h4>Custos Iniciais (Pagos na Liberação)</h4>
+                <p><strong>TAC:</strong> <span id="summary-tac"></span></p>
+                <p><strong>ECG:</strong> <span id="summary-ecg"></span></p>
+                <p><strong>IOF:</strong> <span id="summary-iof"></span></p>
+                <p><strong>1ª Parcela do Seguro:</strong> <span id="summary-insurance"></span></p>
+                <p><strong>Total dos Custos Iniciais:</strong> <span id="summary-total-costs"></span></p>
+            </div>
+
+            <div id="schedule">
+                <h3>Cronograma de Pagamentos</h3>
+                <table id="schedule-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Data</th>
+                            <th>Capital (Amortização)</th>
+                            <th>Juros</th>
+                            <th>Prestamista</th>
+                            <th>Valor a Pagar</th>
+                            <th>Saldo Devedor</th>
+                        </tr>
+                    </thead>
+                    <tbody id="schedule-body">
+                        </tbody>
+                </table>
+            </div>
+
+             <div class="form-actions">
+                <button type="button" id="export-pdf-btn">Exportar para PDF</button>
+            </div>
+        </section>
+
+    </main>
+
+    <footer>
+        <p>Simulador de Crédito desenvolvido por Francisco Eliciano com revisão de código por IA.</p>
+    </footer>
+
+    <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/jspdf-autotable@latest/dist/jspdf.plugin.autotable.min.js"></script>
+
+    <script src="script.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,183 @@
+/* --- GERAL E FONTES --- */
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap');
+
+:root {
+    --primary-color: #005A9C; /* Um azul corporativo */
+    --secondary-color: #f4f7f9; /* Cinza claro para o fundo */
+    --text-color: #2d3748;      /* Cinza escuro para texto */
+    --border-color: #e2e8f0;    /* Cinza para bordas */
+    --white-color: #ffffff;
+    --light-gray-bg: #f9fafb; /* Cinza para zebrar a tabela */
+}
+
+body {
+    font-family: 'Lato', sans-serif;
+    background-color: var(--secondary-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 20px;
+    font-size: 16px;
+}
+
+main {
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: var(--white-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* --- CABEÇALHO E TÍTULOS --- */
+header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+header h1 {
+    color: var(--primary-color);
+    margin-bottom: 5px;
+}
+
+header .subtitle {
+    font-size: 0.9em;
+    color: #718096; /* Cinza médio */
+    margin-top: 0;
+}
+
+h2, h3, h4 {
+    color: var(--text-color);
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-top: 30px;
+}
+
+h4 {
+    border-bottom: none;
+    font-size: 1.1em;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 25px 0;
+}
+
+/* --- FORMULÁRIO --- */
+#simulator-form {
+    margin-bottom: 40px;
+}
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-sizing: border-box; /* Garante que padding não afete a largura total */
+    font-size: 1em;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 90, 156, 0.2);
+}
+
+.form-actions {
+    text-align: center;
+    margin-top: 30px;
+}
+
+/* --- BOTÕES --- */
+button {
+    background-color: var(--primary-color);
+    color: var(--white-color);
+    border: none;
+    border-radius: 5px;
+    padding: 12px 30px;
+    font-size: 1.1em;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+button:hover {
+    background-color: #004a80; /* Um azul um pouco mais escuro */
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+/* --- ÁREA DE RESULTADOS --- */
+.hidden {
+    display: none;
+}
+
+#summary p {
+    line-height: 1.6;
+}
+
+#summary p strong {
+    min-width: 250px;
+    display: inline-block;
+}
+
+/* --- TABELA DE RESULTADOS --- */
+#schedule {
+    overflow-x: auto; /* Garante que a tabela seja rolável em telas pequenas */
+}
+
+#schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 0.95em;
+}
+
+#schedule-table th,
+#schedule-table td {
+    padding: 12px 15px;
+    border: 1px solid var(--border-color);
+    text-align: right; /* Alinha todos os números à direita */
+}
+
+#schedule-table th {
+    background-color: var(--secondary-color);
+    font-weight: 700;
+    text-align: center;
+}
+
+/* Alinhamento específico para colunas que não são numéricas */
+#schedule-table th:nth-child(2),
+#schedule-table td:nth-child(2) {
+    text-align: left;
+}
+
+
+#schedule-table tbody tr:nth-child(even) {
+    background-color: var(--light-gray-bg);
+}
+
+#schedule-table tbody tr:hover {
+    background-color: #e9eff5; /* Cor de destaque ao passar o mouse */
+}
+
+
+/* --- RODAPÉ --- */
+footer {
+    text-align: center;
+    margin-top: 40px;
+    font-size: 0.8em;
+    color: #a0aec0; /* Cinza claro */
+}
