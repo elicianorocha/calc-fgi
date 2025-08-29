@@ -1,5 +1,20 @@
 document.addEventListener('DOMContentLoaded', () => {
 
+    const APP_VERSION = '1.1.0';
+
+    // --- ALERT DE NOVIDADES DA VERSÃO ---
+    const lastVersionShown = localStorage.getItem('lastVersionShown');
+    if (lastVersionShown !== APP_VERSION) {
+        alert(`Novidades da Versão ${APP_VERSION}!\n\nA calculadora foi atualizada com as seguintes melhorias:\n- Totalizadores na tabela de pagamentos.\n- Inclusão de um termo de responsabilidade (disclaimer).\n- Informações de versão e desenvolvedor no rodapé.\n- Melhorias na exportação para PDF.`);
+        localStorage.setItem('lastVersionShown', APP_VERSION);
+    }
+
+    // --- INICIALIZA O RODAPÉ ---
+    const footer = document.getElementById('app-footer');
+    if (footer) {
+        footer.innerHTML = `Versão ${APP_VERSION} - Aplicação web desenvolvida por Francisco Eliciano. Contato: eliciano@outlook.com.br.`;
+    }
+
     // --- VARIÁVEIS PARA GUARDAR OS RESULTADOS PARA O PDF ---
     let lastCalculationResults = null;
 
@@ -96,6 +111,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const cetMonthly = calculateIRR(cashFlow);
         const cetAnnual = cetMonthly ? (Math.pow(1 + cetMonthly, 12) - 1) : 0;
+
+        // --- CÁLCULO DOS TOTAIS ---
+        const totals = paymentSchedule.reduce((acc, row, index) => {
+            // Ignora a linha de liberação do crédito (índice 0)
+            if (index > 0) {
+                acc.capital += row.capital;
+                acc.interest += row.interest;
+                acc.totalPayment += row.totalPayment;
+            }
+            return acc;
+        }, { capital: 0, interest: 0, totalPayment: 0 });
         
         const summaryData = {
             clientName: document.getElementById('client-name').value,
@@ -110,12 +136,13 @@ document.addEventListener('DOMContentLoaded', () => {
             TAC, ecg, iof, insuranceInstallmentValue, upfrontCosts, monthlyInterestRate, cetMonthly, cetAnnual,
         };
         
-        lastCalculationResults = { schedule: paymentSchedule, summary: summaryData };
+        lastCalculationResults = { schedule: paymentSchedule, summary: summaryData, totals: totals };
         
-        displayResults(paymentSchedule, summaryData);
+        displayResults(paymentSchedule, summaryData, totals);
     });
 
-    function displayResults(schedule, summary) {
+    function displayResults(schedule, summary, totals) {
+        // --- PREENCHE O RESUMO ---
         document.getElementById('summary-client-name').textContent = summary.clientName;
         document.getElementById('summary-client-cnpj').textContent = summary.clientCnpj;
         document.getElementById('summary-monthly-rate').textContent = formatPercentage(summary.monthlyInterestRate);
@@ -126,6 +153,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('summary-iof').textContent = formatCurrency(summary.iof);
         document.getElementById('summary-insurance').textContent = formatCurrency(summary.insuranceInstallmentValue);
         document.getElementById('summary-total-costs').textContent = formatCurrency(summary.upfrontCosts);
+
+        // --- PREENCHE A TABELA (CRONOGRAMA) ---
         const scheduleBody = document.getElementById('schedule-body');
         scheduleBody.innerHTML = '';
         schedule.forEach(row => {
@@ -133,6 +162,28 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.innerHTML = `<td>${row.index}</td><td>${formatDate(row.date)}</td><td>${formatCurrency(row.capital)}</td><td>${formatCurrency(row.interest)}</td><td>${formatCurrency(row.insurance)}</td><td>${formatCurrency(row.totalPayment)}</td><td>${formatCurrency(row.balance)}</td>`;
             scheduleBody.appendChild(tr);
         });
+
+        // --- ADICIONA A LINHA DE TOTAIS NA TABELA ---
+        const table = document.getElementById('schedule-table');
+        let tfoot = table.querySelector('tfoot');
+        if (tfoot) tfoot.remove(); // Limpa totais anteriores
+        tfoot = table.createTFoot();
+        const totalsRow = tfoot.insertRow();
+        totalsRow.className = 'table-totals-row';
+        totalsRow.innerHTML = `
+            <td colspan="2"><strong>TOTAIS</strong></td>
+            <td><strong>${formatCurrency(totals.capital)}</strong></td>
+            <td><strong>${formatCurrency(totals.interest)}</strong></td>
+            <td></td> <!-- Coluna Prestamista vazia no total -->
+            <td><strong>${formatCurrency(totals.totalPayment)}</strong></td>
+            <td></td> <!-- Coluna Saldo Devedor vazia no total -->
+        `;
+
+        // --- ADICIONA O DISCLAIMER ---
+        const disclaimerTextElement = document.getElementById('disclaimer-text');
+        disclaimerTextElement.textContent = `*Todas as opiniões, estimativas e projeções que constam do presente material traduzem nosso julgamento no momento da sua elaboração e podem ser modificadas a qualquer momento e sem aviso prévio, a exclusivo critério do BB e sem nenhum ônus e/ou responsabilidade para este. O BB não será responsável, ainda, por quaisquer perdas diretas, indiretas ou quaisquer tipos de prejuízos e/ou lucros cessantes que possam ser decorrentes do uso deste conteúdo. Qualquer decisão de contratar a estrutura aqui apresentada deve ser baseada exclusivamente em análise do cliente, sendo exclusivamente do cliente a responsabilidade por tal decisão. Nenhuma suposição, projeção ou exemplificação constante deste material deve ser considerada como garantia de eventos futuros e/ou de “performance”. Este documento não constitui oferta, convite, contratação da estrutura ou qualquer obrigação por parte do BB, de qualquer forma e em qualquer nível.`;
+
+        // --- MOSTRA A ÁREA DE RESULTADOS ---
         document.getElementById('results-area').classList.remove('hidden');
     }
 
@@ -155,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return rate;
     }
     
-    // --- LÓGICA DE EXPORTAÇÃO PARA PDF FINALIZADA ---
+    // --- LÓGICA DE EXPORTAÇÃO PARA PDF ---
     const exportPdfBtn = document.getElementById('export-pdf-btn');
     exportPdfBtn.addEventListener('click', () => {
         if (!lastCalculationResults) {
@@ -165,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        const { schedule, summary } = lastCalculationResults;
+        const { schedule, summary, totals } = lastCalculationResults;
         
         const margin = 15;
         const pageWidth = doc.internal.pageSize.width;
@@ -208,22 +259,20 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
         listItems.forEach(item => {
             doc.text(item, margin, y, { maxWidth: pageWidth - margin * 2 });
-            y += 8; // Aumentado para corrigir sobreposição
+            y += 8;
         });
         y += 12;
 
-        // --- LÓGICA DO LAYOUT DE DUAS COLUNAS ---
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         doc.setTextColor(...textColor);
 
         const lineHeight = 6;
         const blockSpacing = 10;
-        const column2X = pageWidth / 2 + 5; // Posição X da segunda coluna
+        const column2X = pageWidth / 2 + 5;
         let yLeft = y;
         let yRight = y;
 
-        // Função para desenhar os subtítulos
         const drawSubtitle = (text, x, yPos) => {
             doc.setFont('helvetica', 'bold');
             doc.text(text, x, yPos);
@@ -234,7 +283,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return yPos + blockSpacing;
         };
 
-        // --- COLUNA DA ESQUERDA ---
         yLeft = drawSubtitle('Cliente', margin, yLeft);
         doc.text(`Nome: ${summary.clientName}`, margin, yLeft);
         yLeft += lineHeight;
@@ -253,7 +301,6 @@ document.addEventListener('DOMContentLoaded', () => {
         yLeft += lineHeight;
         doc.text(`Parcelas: ${summary.installments}`, margin, yLeft);
         
-        // --- COLUNA DA DIREITA ---
         yRight = drawSubtitle('Taxas da Operação', column2X, yRight);
         doc.text(`Taxa Contratual: CDI + ${formatPercentageNoSymbol(summary.contractRate)}% a.a.`, column2X, yRight);
         yRight += lineHeight;
@@ -276,32 +323,63 @@ document.addEventListener('DOMContentLoaded', () => {
         doc.text(`Total: ${formatCurrency(totalCustos)}`, column2X, yRight);
         doc.setFont('helvetica', 'normal');
 
-        // Define a posição Y para a tabela começar após a coluna mais longa
         y = Math.max(yLeft, yRight) + 15;
 
-        // --- TABELA DE PAGAMENTOS ---
         const tableBody = schedule.map(row => [
             row.index, formatDate(row.date), formatCurrency(row.capital), formatCurrency(row.interest),
             formatCurrency(row.insurance), formatCurrency(row.totalPayment), formatCurrency(row.balance),
         ]);
 
+        const tableFooter = [[
+            { content: 'TOTAIS', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold' } },
+            { content: formatCurrency(totals.capital), styles: { halign: 'right', fontStyle: 'bold' } },
+            { content: formatCurrency(totals.interest), styles: { halign: 'right', fontStyle: 'bold' } },
+            '',
+            { content: formatCurrency(totals.totalPayment), styles: { halign: 'right', fontStyle: 'bold' } },
+            '',
+        ]];
+
         doc.autoTable({
             startY: y,
             head: [['#', 'Data', 'Capital (Amortização)', 'Juros', 'Prestamista', 'Valor a Pagar', 'Saldo Devedor']],
             body: tableBody,
+            foot: tableFooter,
             theme: 'grid',
             headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+            footStyles: { fillColor: [229, 239, 245], textColor: textColor, fontStyle: 'bold' },
             bodyStyles: { textColor: textColor },
             alternateRowStyles: { fillColor: [244, 247, 249] },
             styles: { fontSize: 7, cellPadding: 2 },
             columnStyles: { 0: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' },},
             didDrawPage: (data) => {
+                // Adiciona o rodapé com a paginação em todas as páginas
                 doc.setFontSize(8);
                 doc.setTextColor(128, 128, 128);
                 doc.text(`Página ${data.pageNumber}`, pageWidth / 2, doc.internal.pageSize.height - 10, { align: 'center' });
             }
         });
         
+        let finalY = doc.autoTable.previous.finalY;
+        y = finalY + 10;
+
+        doc.setDrawColor(...primaryColor);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 7;
+
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...textColor);
+        const disclaimerText = `*Todas as opiniões, estimativas e projeções que constam do presente material traduzem nosso julgamento no momento da sua elaboração e podem ser modificadas a qualquer momento e sem aviso prévio, a exclusivo critério do BB e sem nenhum ônus e/ou responsabilidade para este. O BB não será responsável, ainda, por quaisquer perdas diretas, indiretas ou quaisquer tipos de prejuízos e/ou lucros cessantes que possam ser decorrentes do uso deste conteúdo. Qualquer decisão de contratar a estrutura aqui apresentada deve ser baseada exclusivamente em análise do cliente, sendo exclusivamente do cliente a responsabilidade por tal decisão. Nenhuma suposição, projeção ou exemplificação constante deste material deve ser considerada como garantia de eventos futuros e/ou de “performance”. Este documento não constitui oferta, convite, contratação da estrutura ou qualquer obrigação por parte do BB, de qualquer forma e em qualquer nível.`;
+        const splitDisclaimer = doc.splitTextToSize(disclaimerText, pageWidth - margin * 2);
+        doc.text(splitDisclaimer, margin, y);
+
+        // Rodapé da aplicação na última página
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        const footerText = `Versão ${APP_VERSION} - Aplicação web desenvolvida por Francisco Eliciano. Contato: eliciano@outlook.com.br.`;
+        doc.text(footerText, pageWidth / 2, doc.internal.pageSize.height - 15, { align: 'center' });
+
         doc.save(`Cotacao_Indicativa_PEAC_FGI_${summary.clientName.replace(/ /g, '_')}.pdf`);
     });
 });

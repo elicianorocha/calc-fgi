@@ -180,4 +180,39 @@ footer {
     margin-top: 40px;
     font-size: 0.8em;
     color: #a0aec0; /* Cinza claro */
+    line-height: 1.6;
+}
+
+/* --- TOTAIS DA TABELA --- */
+#schedule-table tfoot tr {
+    background-color: #e9eff5; /* Mesmo azul claro do hover para consistência */
+    font-weight: 700;
+}
+
+#schedule-table tfoot td {
+    text-align: right;
+    padding-right: 15px;
+}
+
+#schedule-table tfoot td:first-child {
+    text-align: center;
+}
+
+/* --- DISCLAIMER --- */
+#disclaimer-container {
+    padding: 0 15px; /* Alinha com o padding da tabela */
+}
+
+.disclaimer-line {
+    border: none;
+    height: 1px;
+    background-color: var(--primary-color);
+    margin: 25px 0;
+}
+
+.disclaimer-text {
+    font-size: 0.75em;
+    color: #718096; /* Cinza médio */
+    line-height: 1.5;
+    text-align: justify;
 }
