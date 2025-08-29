@@ -2,11 +2,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const APP_VERSION = '1.1.0';
 
-    // --- ALERT DE NOVIDADES DA VERSÃO ---
-    const lastVersionShown = localStorage.getItem('lastVersionShown');
-    if (lastVersionShown !== APP_VERSION) {
-        alert(`Novidades da Versão ${APP_VERSION}!\n\nA calculadora foi atualizada com as seguintes melhorias:\n- Totalizadores na tabela de pagamentos.\n- Inclusão de um termo de responsabilidade (disclaimer).\n- Informações de versão e desenvolvedor no rodapé.\n- Melhorias na exportação para PDF.`);
-        localStorage.setItem('lastVersionShown', APP_VERSION);
+    // --- ALERT DE NOVIDADES DA VERSÃO (APARECE 3 VEZES) ---
+    const versionInfo = JSON.parse(localStorage.getItem('versionInfo')) || {};
+    if (versionInfo.version !== APP_VERSION || (versionInfo.shownCount || 0) < 3) {
+        alert(`Novidades da Versão ${APP_VERSION}!\n\n- Totalizadores na tabela e no PDF.\n- Disclaimer e rodapé com versão no PDF.\n- Correções de layout no PDF.\n- E outros pequenos ajustes!`);
+
+        const newCount = (versionInfo.version === APP_VERSION) ? (versionInfo.shownCount || 0) + 1 : 1;
+
+        localStorage.setItem('versionInfo', JSON.stringify({
+            version: APP_VERSION,
+            shownCount: newCount
+        }));
     }
 
     // --- INICIALIZA O RODAPÉ ---
@@ -381,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Desenha o conteúdo com a certeza de que há espaço
-        y += 10;
+        y += 5;
         doc.setDrawColor(...primaryColor);
         doc.setLineWidth(0.5);
         doc.line(margin, y, pageWidth - margin, y);
@@ -392,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
         doc.text(splitDisclaimer, margin, y);
 
         // Rodapé da aplicação (sempre no final da página atual)
-        doc.setFontSize(8);
+        doc.setFontSize(7);
         doc.setTextColor(128, 128, 128);
         const footerText = `Versão ${APP_VERSION} - Aplicação web desenvolvida por Francisco Eliciano. Contato: eliciano@outlook.com.br.`;
         doc.text(footerText, pageWidth / 2, pageHeight - 15, { align: 'center' });

@@ -178,7 +178,7 @@ button:active {
 footer {
     text-align: center;
     margin-top: 40px;
-    font-size: 0.8em;
+    font-size: 0.75em;
     color: #a0aec0; /* Cinza claro */
     line-height: 1.6;
 }
@@ -207,7 +207,7 @@ footer {
     border: none;
     height: 1px;
     background-color: var(--primary-color);
-    margin: 25px 0;
+    margin: 15px 0;
 }
 
 .disclaimer-text {
