@@ -344,6 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
             head: [['#', 'Data', 'Capital (Amortização)', 'Juros', 'Prestamista', 'Valor a Pagar', 'Saldo Devedor']],
             body: tableBody,
             foot: tableFooter,
+            showFoot: 'lastPage',
             theme: 'grid',
             headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
             footStyles: { fillColor: [229, 239, 245], textColor: textColor, fontStyle: 'bold' },
