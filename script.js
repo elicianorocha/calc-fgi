@@ -359,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        let finalY = doc.autoTable.previous.finalY;
+        let finalY = doc.lastAutoTable.finalY;
         y = finalY + 10;
 
         doc.setDrawColor(...primaryColor);
