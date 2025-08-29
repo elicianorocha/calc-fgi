@@ -361,25 +361,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         let finalY = doc.lastAutoTable.finalY;
-        y = finalY + 10;
+        y = finalY;
 
+        const pageHeight = doc.internal.pageSize.height;
+        const bottomMargin = 20;
+
+        // --- DISCLAIMER E RODAPÉ COM VERIFICAÇÃO DE QUEBRA DE PÁGINA ---
+        doc.setFontSize(7);
+        const disclaimerText = `*Todas as opiniões, estimativas e projeções que constam do presente material traduzem nosso julgamento no momento da sua elaboração e podem ser modificadas a qualquer momento e sem aviso prévio, a exclusivo critério do BB e sem nenhum ônus e/ou responsabilidade para este. O BB não será responsável, ainda, por quaisquer perdas diretas, indiretas ou quaisquer tipos de prejuízos e/ou lucros cessantes que possam ser decorrentes do uso deste conteúdo. Qualquer decisão de contratar a estrutura aqui apresentada deve ser baseada exclusivamente em análise do cliente, sendo exclusivamente do cliente a responsabilidade por tal decisão. Nenhuma suposição, projeção ou exemplificação constante deste material deve ser considerada como garantia de eventos futuros e/ou de “performance”. Este documento não constitui oferta, convite, contratação da estrutura ou qualquer obrigação por parte do BB, de qualquer forma e em qualquer nível.`;
+        const splitDisclaimer = doc.splitTextToSize(disclaimerText, pageWidth - margin * 2);
+
+        const disclaimerHeight = (splitDisclaimer.length * doc.getFontSize()) / doc.internal.scaleFactor;
+        const spaceForLine = 15; // Espaço para a linha e margens
+        const spaceNeeded = spaceForLine + disclaimerHeight;
+
+        if (y + spaceNeeded > pageHeight - bottomMargin) {
+            doc.addPage();
+            y = margin;
+        }
+
+        // Desenha o conteúdo com a certeza de que há espaço
+        y += 10;
         doc.setDrawColor(...primaryColor);
         doc.setLineWidth(0.5);
         doc.line(margin, y, pageWidth - margin, y);
         y += 7;
 
-        doc.setFontSize(7);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(...textColor);
-        const disclaimerText = `*Todas as opiniões, estimativas e projeções que constam do presente material traduzem nosso julgamento no momento da sua elaboração e podem ser modificadas a qualquer momento e sem aviso prévio, a exclusivo critério do BB e sem nenhum ônus e/ou responsabilidade para este. O BB não será responsável, ainda, por quaisquer perdas diretas, indiretas ou quaisquer tipos de prejuízos e/ou lucros cessantes que possam ser decorrentes do uso deste conteúdo. Qualquer decisão de contratar a estrutura aqui apresentada deve ser baseada exclusivamente em análise do cliente, sendo exclusivamente do cliente a responsabilidade por tal decisão. Nenhuma suposição, projeção ou exemplificação constante deste material deve ser considerada como garantia de eventos futuros e/ou de “performance”. Este documento não constitui oferta, convite, contratação da estrutura ou qualquer obrigação por parte do BB, de qualquer forma e em qualquer nível.`;
-        const splitDisclaimer = doc.splitTextToSize(disclaimerText, pageWidth - margin * 2);
         doc.text(splitDisclaimer, margin, y);
 
-        // Rodapé da aplicação na última página
+        // Rodapé da aplicação (sempre no final da página atual)
         doc.setFontSize(8);
         doc.setTextColor(128, 128, 128);
         const footerText = `Versão ${APP_VERSION} - Aplicação web desenvolvida por Francisco Eliciano. Contato: eliciano@outlook.com.br.`;
-        doc.text(footerText, pageWidth / 2, doc.internal.pageSize.height - 15, { align: 'center' });
+        doc.text(footerText, pageWidth / 2, pageHeight - 15, { align: 'center' });
 
         doc.save(`Cotacao_Indicativa_PEAC_FGI_${summary.clientName.replace(/ /g, '_')}.pdf`);
     });
