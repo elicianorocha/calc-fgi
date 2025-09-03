@@ -1,11 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    const APP_VERSION = '1.1.0';
+    const APP_VERSION = '1.2.0';
 
     // --- ALERT DE NOVIDADES DA VERSÃO (APARECE 3 VEZES) ---
     const versionInfo = JSON.parse(localStorage.getItem('versionInfo')) || {};
     if (versionInfo.version !== APP_VERSION || (versionInfo.shownCount || 0) < 3) {
-        alert(`Novidades da Versão ${APP_VERSION}!\n\n- Totalizadores na tabela e no PDF.\n- Disclaimer e rodapé com versão no PDF.\n- Correções de layout no PDF.\n- E outros pequenos ajustes!`);
+        alert(`Novidades da Versão ${APP_VERSION}!\n\n- O cálculo de juros agora é pro-rata, baseado no número exato de dias do período (referência de 30 dias).\n- Maior precisão nos cálculos, seguindo as práticas de mercado.`);
 
         const newCount = (versionInfo.version === APP_VERSION) ? (versionInfo.shownCount || 0) + 1 : 1;
 
@@ -36,6 +36,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatPercentage = (value) => `${(value * 100).toFixed(2).replace('.', ',')}%`;
     const formatPercentageNoSymbol = (value) => `${value.toFixed(2).replace('.', ',')}`;
 
+    const calculateDaysBetween = (startDate, endDate) => {
+        const differenceInTime = endDate.getTime() - startDate.getTime();
+        const differenceInDays = Math.round(differenceInTime / (1000 * 3600 * 24));
+        return differenceInDays;
+    };
+
+    const addMonthsSafely = (startDate, monthsToAdd) => {
+        const d = new Date(startDate);
+        const originalDay = d.getUTCDate();
+        d.setUTCDate(1);
+        d.setUTCMonth(d.getUTCMonth() + monthsToAdd);
+        const lastDayOfNewMonth = new Date(d.getUTCFullYear(), d.getUTCMonth() + 1, 0).getUTCDate();
+        d.setUTCDate(Math.min(originalDay, lastDayOfNewMonth));
+        return d;
+    };
+
     const calculateBtn = document.getElementById('calculate-btn');
     calculateBtn.addEventListener('click', () => {
         const requiredFields = [ { id: 'client-name', name: 'Cliente' }, { id: 'client-cnpj', name: 'CNPJ' }, { id: 'proposal-date', name: 'Data da proposta' }, { id: 'loan-amount', name: 'Valor a Financiar' }, { id: 'grace-period', name: 'Carência' }, { id: 'first-payment-date', name: 'Data 1ª Parcela' }, { id: 'installments', name: 'Parcelas' }, { id: 'partners-qty', name: 'Quantidade de Sócios' }, { id: 'contract-rate', name: 'Taxa Contratual' }, { id: 'cdi-rate', name: 'CDI anual' } ];
@@ -60,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const TAC = 5000;
         const totalAnnualRate = (contractRate + cdiRate) / 100;
         const monthlyInterestRate = Math.pow(1 + totalAnnualRate, 1 / 12) - 1;
-        const totalTermDays = gracePeriodDays + (installments * 30);
+        const totalTermDays = gracePeriodDays + (installments * 30); // Esta variável pode se tornar obsoleta ou precisar de revisão.
         const totalTermMonths = Math.ceil(totalTermDays / 30);
         
         const insuranceRatePercent = seguroTable.find(r => totalTermDays >= r.minDays && totalTermDays <= r.maxDays)?.ratePercent;
@@ -90,29 +106,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const cashFlow = [loanAmount - upfrontCosts];
         paymentSchedule.push({ index: 0, date: proposalDate, capital: 0, interest: 0, insurance: insuranceInstallmentValue, totalPayment: upfrontCosts, balance: loanAmount });
         
-        const paymentDay = firstPaymentDate.getUTCDate();
+        let lastPaymentDate = new Date(proposalDate);
         
         for (let i = 1; i <= numGracePayments; i++) {
-            let graceDate = new Date(firstPaymentDate);
-            graceDate.setUTCMonth(graceDate.getUTCMonth() - (numGracePayments - i + 1));
-            graceDate.setUTCDate(paymentDay);
-            const interest = loanAmount * monthlyInterestRate;
+            const graceDate = addMonthsSafely(firstPaymentDate, -(numGracePayments - i + 1));
+
+            const daysInPeriod = calculateDaysBetween(lastPaymentDate, graceDate);
+            const interest = loanAmount * monthlyInterestRate * (daysInPeriod / 30);
+
             paymentSchedule.push({ index: i, date: graceDate, capital: 0, interest: interest, insurance: insuranceInstallmentValue, totalPayment: interest + insuranceInstallmentValue, balance: loanAmount });
             cashFlow.push(-(interest + insuranceInstallmentValue));
+            lastPaymentDate = graceDate;
         }
 
         let balance = loanAmount;
         const amortizationValue = loanAmount / installments;
         for (let i = 1; i <= installments; i++) {
-            let amortizationDate = new Date(firstPaymentDate);
-            amortizationDate.setUTCMonth(amortizationDate.getUTCMonth() + (i - 1));
-            const interest = balance * monthlyInterestRate;
+            const amortizationDate = addMonthsSafely(firstPaymentDate, i - 1);
+
+            const daysInPeriod = calculateDaysBetween(lastPaymentDate, amortizationDate);
+            const interest = balance * monthlyInterestRate * (daysInPeriod / 30);
+
             const insurancePayment = (i === installments) ? 0 : insuranceInstallmentValue;
             const totalPayment = amortizationValue + interest + insurancePayment;
             balance -= amortizationValue;
             balance = (i === installments) ? 0 : balance;
             paymentSchedule.push({ index: numGracePayments + i, date: amortizationDate, capital: amortizationValue, interest: interest, insurance: insurancePayment, totalPayment: totalPayment, balance: balance });
             cashFlow.push(-totalPayment);
+            lastPaymentDate = amortizationDate;
         }
 
         const cetMonthly = calculateIRR(cashFlow);
