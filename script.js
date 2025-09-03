@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- ALERT DE NOVIDADES DA VERSÃO (APARECE 3 VEZES) ---
     const versionInfo = JSON.parse(localStorage.getItem('versionInfo')) || {};
     if (versionInfo.version !== APP_VERSION || (versionInfo.shownCount || 0) < 3) {
-        alert(`Novidades da Versão ${APP_VERSION}!\n\n- O cálculo de juros agora é pro-rata, baseado no número exato de dias do período (referência de 30 dias).\n- Maior precisão nos cálculos, seguindo as práticas de mercado.`);
+        alert(`Novidades da Versão 1.2.0!\n\n- Juros pro-rata: O cálculo de juros agora é baseado no número exato de dias do período.\n- Nova regra de datas: Vencimentos em dias 29, 30 ou 31 são movidos para o dia 1º do mês seguinte, caso o mês não possua o dia.`);
 
         const newCount = (versionInfo.version === APP_VERSION) ? (versionInfo.shownCount || 0) + 1 : 1;
 
@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const TAC = 5000;
         const totalAnnualRate = (contractRate + cdiRate) / 100;
         const monthlyInterestRate = Math.pow(1 + totalAnnualRate, 1 / 12) - 1;
-        const totalTermDays = gracePeriodDays + (installments * 30); // Esta variável pode se tornar obsoleta ou precisar de revisão.
+        const totalTermDays = gracePeriodDays + (installments * 30);
         const totalTermMonths = Math.ceil(totalTermDays / 30);
         
         const insuranceRatePercent = seguroTable.find(r => totalTermDays >= r.minDays && totalTermDays <= r.maxDays)?.ratePercent;
