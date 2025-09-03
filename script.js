@@ -47,9 +47,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const originalDay = d.getUTCDate();
         d.setUTCDate(1);
         d.setUTCMonth(d.getUTCMonth() + monthsToAdd);
-        const lastDayOfNewMonth = new Date(d.getUTCFullYear(), d.getUTCMonth() + 1, 0).getUTCDate();
-        d.setUTCDate(Math.min(originalDay, lastDayOfNewMonth));
-        return d;
+        const lastDayOfTargetMonth = new Date(d.getUTCFullYear(), d.getUTCMonth() + 1, 0).getUTCDate();
+        if (originalDay > lastDayOfTargetMonth) {
+            d.setUTCMonth(d.getUTCMonth() + 1);
+            return d;
+        } else {
+            d.setUTCDate(originalDay);
+            return d;
+        }
     };
 
     const calculateBtn = document.getElementById('calculate-btn');
