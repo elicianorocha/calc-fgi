@@ -1,11 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    const APP_VERSION = '1.1.0';
+    const APP_VERSION = '1.2.0';
 
     // --- ALERT DE NOVIDADES DA VERSÃO (APARECE 3 VEZES) ---
     const versionInfo = JSON.parse(localStorage.getItem('versionInfo')) || {};
     if (versionInfo.version !== APP_VERSION || (versionInfo.shownCount || 0) < 3) {
-        alert(`Novidades da Versão ${APP_VERSION}!\n\n- Totalizadores na tabela e no PDF.\n- Disclaimer e rodapé com versão no PDF.\n- Correções de layout no PDF.\n- E outros pequenos ajustes!`);
+        alert(`Novidades da Versão 1.2.0!\n\n- Juros pro-rata: O cálculo de juros agora é baseado no número exato de dias do período.\n- Nova regra de datas: Vencimentos em dias 29, 30 ou 31 são movidos para o dia 1º do mês seguinte, caso o mês não possua o dia.\n- Cálculo de juros separado para Taxa Contratual (dias corridos) e CDI (dias úteis).`);
 
         const newCount = (versionInfo.version === APP_VERSION) ? (versionInfo.shownCount || 0) + 1 : 1;
 
@@ -36,6 +36,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatPercentage = (value) => `${(value * 100).toFixed(2).replace('.', ',')}%`;
     const formatPercentageNoSymbol = (value) => `${value.toFixed(2).replace('.', ',')}`;
 
+    const calculateDaysBetween = (startDate, endDate) => {
+        const differenceInTime = endDate.getTime() - startDate.getTime();
+        const differenceInDays = Math.round(differenceInTime / (1000 * 3600 * 24));
+        return differenceInDays;
+    };
+
+    const calculateBusinessDays = (startDate, endDate) => {
+        let count = 0;
+        const curDate = new Date(startDate.getTime());
+        while (curDate < endDate) {
+            const dayOfWeek = curDate.getUTCDay();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                count++;
+            }
+            curDate.setUTCDate(curDate.getUTCDate() + 1);
+        }
+        return count;
+    };
+
+    const addMonthsSafely = (startDate, monthsToAdd) => {
+        const d = new Date(startDate);
+        const originalDay = d.getUTCDate();
+        d.setUTCDate(1);
+        d.setUTCMonth(d.getUTCMonth() + monthsToAdd);
+        const lastDayOfTargetMonth = new Date(d.getUTCFullYear(), d.getUTCMonth() + 1, 0).getUTCDate();
+        if (originalDay > lastDayOfTargetMonth) {
+            d.setUTCMonth(d.getUTCMonth() + 1);
+            return d;
+        } else {
+            d.setUTCDate(originalDay);
+            return d;
+        }
+    };
+
     const calculateBtn = document.getElementById('calculate-btn');
     calculateBtn.addEventListener('click', () => {
         const requiredFields = [ { id: 'client-name', name: 'Cliente' }, { id: 'client-cnpj', name: 'CNPJ' }, { id: 'proposal-date', name: 'Data da proposta' }, { id: 'loan-amount', name: 'Valor a Financiar' }, { id: 'grace-period', name: 'Carência' }, { id: 'first-payment-date', name: 'Data 1ª Parcela' }, { id: 'installments', name: 'Parcelas' }, { id: 'partners-qty', name: 'Quantidade de Sócios' }, { id: 'contract-rate', name: 'Taxa Contratual' }, { id: 'cdi-rate', name: 'CDI anual' } ];
@@ -54,12 +88,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const gracePeriodDays = parseInt(document.getElementById('grace-period').value);
         const installments = parseInt(document.getElementById('installments').value);
         const partnersQty = parseInt(document.getElementById('partners-qty').value);
-        const contractRate = parseFloat(document.getElementById('contract-rate').value);
-        const cdiRate = parseFloat(document.getElementById('cdi-rate').value);
+        const contractRate = parseFloat(document.getElementById('contract-rate').value) / 100;
+        const cdiRate = parseFloat(document.getElementById('cdi-rate').value) / 100;
 
-        const TAC = 5000;
-        const totalAnnualRate = (contractRate + cdiRate) / 100;
-        const monthlyInterestRate = Math.pow(1 + totalAnnualRate, 1 / 12) - 1;
+        const monthlyContractRate = Math.pow(1 + contractRate, 1/12) - 1;
+
         const totalTermDays = gracePeriodDays + (installments * 30);
         const totalTermMonths = Math.ceil(totalTermDays / 30);
         
@@ -84,39 +117,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const ecg = 0.4 * (0.8 * kFactor * loanAmount * ecgN);
         const iof = (loanAmount * 0.0038) + (loanAmount * 0.000082 * Math.min(totalTermDays, 365));
         
-        const upfrontCosts = TAC + ecg + iof + insuranceInstallmentValue;
+        const upfrontCosts = 5000 + ecg + iof + insuranceInstallmentValue;
         
         const paymentSchedule = [];
         const cashFlow = [loanAmount - upfrontCosts];
         paymentSchedule.push({ index: 0, date: proposalDate, capital: 0, interest: 0, insurance: insuranceInstallmentValue, totalPayment: upfrontCosts, balance: loanAmount });
         
-        const paymentDay = firstPaymentDate.getUTCDate();
+        let lastPaymentDate = new Date(proposalDate);
         
         for (let i = 1; i <= numGracePayments; i++) {
-            let graceDate = new Date(firstPaymentDate);
-            graceDate.setUTCMonth(graceDate.getUTCMonth() - (numGracePayments - i + 1));
-            graceDate.setUTCDate(paymentDay);
-            const interest = loanAmount * monthlyInterestRate;
+            const graceDate = addMonthsSafely(firstPaymentDate, -(numGracePayments - i + 1));
+
+            const calendarDays = calculateDaysBetween(lastPaymentDate, graceDate);
+            const businessDays = calculateBusinessDays(lastPaymentDate, graceDate);
+
+            const interestContractual = loanAmount * monthlyContractRate * (calendarDays / 30);
+            const interestCDI = loanAmount * (cdiRate / 252) * businessDays;
+            const interest = interestContractual + interestCDI;
+
             paymentSchedule.push({ index: i, date: graceDate, capital: 0, interest: interest, insurance: insuranceInstallmentValue, totalPayment: interest + insuranceInstallmentValue, balance: loanAmount });
             cashFlow.push(-(interest + insuranceInstallmentValue));
+            lastPaymentDate = graceDate;
         }
 
         let balance = loanAmount;
         const amortizationValue = loanAmount / installments;
         for (let i = 1; i <= installments; i++) {
-            let amortizationDate = new Date(firstPaymentDate);
-            amortizationDate.setUTCMonth(amortizationDate.getUTCMonth() + (i - 1));
-            const interest = balance * monthlyInterestRate;
+            const amortizationDate = addMonthsSafely(firstPaymentDate, i - 1);
+
+            const calendarDays = calculateDaysBetween(lastPaymentDate, amortizationDate);
+            const businessDays = calculateBusinessDays(lastPaymentDate, amortizationDate);
+
+            const interestContractual = balance * monthlyContractRate * (calendarDays / 30);
+            const interestCDI = balance * (cdiRate / 252) * businessDays;
+            const interest = interestContractual + interestCDI;
+
             const insurancePayment = (i === installments) ? 0 : insuranceInstallmentValue;
             const totalPayment = amortizationValue + interest + insurancePayment;
             balance -= amortizationValue;
             balance = (i === installments) ? 0 : balance;
             paymentSchedule.push({ index: numGracePayments + i, date: amortizationDate, capital: amortizationValue, interest: interest, insurance: insurancePayment, totalPayment: totalPayment, balance: balance });
             cashFlow.push(-totalPayment);
+            lastPaymentDate = amortizationDate;
         }
-
-        const cetMonthly = calculateIRR(cashFlow);
-        const cetAnnual = cetMonthly ? (Math.pow(1 + cetMonthly, 12) - 1) : 0;
 
         // --- CÁLCULO DOS TOTAIS ---
         const totals = paymentSchedule.reduce((acc, row, index) => {
@@ -129,6 +172,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return acc;
         }, { capital: 0, interest: 0, totalPayment: 0 });
         
+        // --- PREPARA DADOS PARA O RESUMO (CÁLCULO DO CET) ---
+        // Para o CET, precisamos de uma taxa de juros mensal "equivalente" para exibição, mesmo que o cálculo seja complexo
+        const totalAnnualRate = contractRate + cdiRate;
+        const monthlyInterestRate = Math.pow(1 + totalAnnualRate, 1 / 12) - 1;
+        const cetMonthly = calculateIRR(cashFlow);
+        const cetAnnual = cetMonthly ? (Math.pow(1 + cetMonthly, 12) - 1) : 0;
+
         const summaryData = {
             clientName: document.getElementById('client-name').value,
             clientCnpj: document.getElementById('client-cnpj').value,
@@ -137,9 +187,9 @@ document.addEventListener('DOMContentLoaded', () => {
             gracePeriodDays: gracePeriodDays,
             firstPaymentDate: firstPaymentDateStr,
             installments: installments,
-            contractRate: contractRate,
-            cdiRate: cdiRate,
-            TAC, ecg, iof, insuranceInstallmentValue, upfrontCosts, monthlyInterestRate, cetMonthly, cetAnnual,
+            contractRate: contractRate * 100, // Reverte para % para exibição
+            cdiRate: cdiRate * 100, // Reverte para % para exibição
+            TAC: 5000, ecg, iof, insuranceInstallmentValue, upfrontCosts, monthlyInterestRate, cetMonthly, cetAnnual,
         };
         
         lastCalculationResults = { schedule: paymentSchedule, summary: summaryData, totals: totals };
