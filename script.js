@@ -1,11 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    const APP_VERSION = '1.2.0';
+    const APP_VERSION = '1.3.0';
 
     // --- ALERT DE NOVIDADES DA VERSÃO (APARECE 3 VEZES) ---
     const versionInfo = JSON.parse(localStorage.getItem('versionInfo')) || {};
     if (versionInfo.version !== APP_VERSION || (versionInfo.shownCount || 0) < 3) {
-        alert(`Novidades da Versão 1.2.0!\n\n- Juros pro-rata: O cálculo de juros agora é baseado no número exato de dias do período.\n- Nova regra de datas: Vencimentos em dias 29, 30 ou 31 são movidos para o dia 1º do mês seguinte, caso o mês não possua o dia.\n- Cálculo de juros separado para Taxa Contratual (dias corridos) e CDI (dias úteis).`);
+        alert(`Novidades da Versão 1.3.0!\n\n- Metodologia de Juros Atualizada: O cálculo agora unifica a Taxa Contratual e o CDI, aplicando a taxa combinada sobre os dias úteis do período, conforme metodologia bancária.\n- Juros pro-rata: O cálculo de juros continua baseado no número exato de dias do período.\n- Nova regra de datas: A regra de vencimentos para meses curtos foi mantida.`);
 
         const newCount = (versionInfo.version === APP_VERSION) ? (versionInfo.shownCount || 0) + 1 : 1;
 
@@ -91,7 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const contractRate = parseFloat(document.getElementById('contract-rate').value) / 100;
         const cdiRate = parseFloat(document.getElementById('cdi-rate').value) / 100;
 
-        const monthlyContractRate = Math.pow(1 + contractRate, 1/12) - 1;
 
         const totalTermDays = gracePeriodDays + (installments * 30);
         const totalTermMonths = Math.ceil(totalTermDays / 30);
@@ -128,12 +127,11 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 1; i <= numGracePayments; i++) {
             const graceDate = addMonthsSafely(firstPaymentDate, -(numGracePayments - i + 1));
 
-            const calendarDays = calculateDaysBetween(lastPaymentDate, graceDate);
             const businessDays = calculateBusinessDays(lastPaymentDate, graceDate);
 
-            const interestContractual = loanAmount * monthlyContractRate * (calendarDays / 30);
-            const interestCDI = loanAmount * (cdiRate / 252) * businessDays;
-            const interest = interestContractual + interestCDI;
+            // Nova lógica de juros unificada
+            const combinedRateFactor = (1 + contractRate) * (1 + cdiRate);
+            const interest = loanAmount * (Math.pow(combinedRateFactor, businessDays / 252) - 1);
 
             paymentSchedule.push({ index: i, date: graceDate, capital: 0, interest: interest, insurance: insuranceInstallmentValue, totalPayment: interest + insuranceInstallmentValue, balance: loanAmount });
             cashFlow.push(-(interest + insuranceInstallmentValue));
@@ -145,12 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 1; i <= installments; i++) {
             const amortizationDate = addMonthsSafely(firstPaymentDate, i - 1);
 
-            const calendarDays = calculateDaysBetween(lastPaymentDate, amortizationDate);
             const businessDays = calculateBusinessDays(lastPaymentDate, amortizationDate);
 
-            const interestContractual = balance * monthlyContractRate * (calendarDays / 30);
-            const interestCDI = balance * (cdiRate / 252) * businessDays;
-            const interest = interestContractual + interestCDI;
+            // Nova lógica de juros unificada
+            const combinedRateFactor = (1 + contractRate) * (1 + cdiRate);
+            const interest = balance * (Math.pow(combinedRateFactor, businessDays / 252) - 1);
 
             const insurancePayment = (i === installments) ? 0 : insuranceInstallmentValue;
             const totalPayment = amortizationValue + interest + insurancePayment;
