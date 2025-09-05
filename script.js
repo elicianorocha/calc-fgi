@@ -1,11 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    const APP_VERSION = '1.3.0';
+    const APP_VERSION = '1.3';
 
     // --- ALERT DE NOVIDADES DA VERSÃO (APARECE 3 VEZES) ---
     const versionInfo = JSON.parse(localStorage.getItem('versionInfo')) || {};
     if (versionInfo.version !== APP_VERSION || (versionInfo.shownCount || 0) < 3) {
-        alert(`Novidades da Versão 1.3.0!\n\n- Metodologia de Juros Atualizada: O cálculo agora unifica a Taxa Contratual e o CDI, aplicando a taxa combinada sobre os dias úteis do período, conforme metodologia bancária.\n- Juros pro-rata: O cálculo de juros continua baseado no número exato de dias do período.\n- Nova regra de datas: A regra de vencimentos para meses curtos foi mantida.`);
+        alert(`Versão 1.3 - (Atualizado em 04/09/2025)\n\nForam feitos ajustes para deixar o simulador ainda mais preciso. Tiaguinho, agora é com você! Manda brasa.`);
 
         const newCount = (versionInfo.version === APP_VERSION) ? (versionInfo.shownCount || 0) + 1 : 1;
 
