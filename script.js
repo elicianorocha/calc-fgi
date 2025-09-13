@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Estado para exportação de PDF ---
   let lastCalculationResults = null;
 
-  // ===== Tabelas =====
+  // ===== Tabelas == //
   const fatorKTable = [
     { minMonths: 0, maxMonths: 3, value: 0.0142 }, { minMonths: 4, maxMonths: 6, value: 0.0062 },
     { minMonths: 7, maxMonths: 9, value: 0.0042 }, { minMonths: 10, maxMonths: 12, value: 0.0031 },
