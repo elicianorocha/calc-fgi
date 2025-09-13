@@ -1,4 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
+ const senhaCorreta = '7625age';
+    const senhaInserida = prompt('Para acessar, por favor, digite a senha:');
+
+    if (senhaInserida !== senhaCorreta) {
+        document.body.innerHTML = '<h1>Acesso Negado</h1><p>A senha está incorreta.</p>';
+        throw new Error('Acesso negado');
+    }
+  
   const APP_VERSION = '1.5.1';
 
   // --- Rodapé ---
