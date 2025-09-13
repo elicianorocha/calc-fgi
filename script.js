@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
- const senhaCorreta = '7625age';
+    const senhaCorreta = '7625age';
     const senhaInserida = prompt('Para acessar, por favor, digite a senha:');
 
     if (senhaInserida !== senhaCorreta) {
