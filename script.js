@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error('Acesso negado');
     }
   
-  const APP_VERSION = '1.5.1';
+  const APP_VERSION = '1.6.0';
 
   // --- Rodapé ---
   const footer = document.getElementById('app-footer');
@@ -54,44 +54,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const fmtDate = (d) => d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
   const fmtPct  = (x) => `${(x * 100).toFixed(2).replace('.', ',')}%`;
   const fmtPctNo = (x) => `${x.toFixed(2).replace('.', ',')}`;
-
-  // Feriados bancários opcionais via ?feriados=1
   const urlParams = new URLSearchParams(location.search);
   const USE_BANK_HOLIDAYS = urlParams.get('feriados') === '1';
-
-  const toISO = (d) => {
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
+  const toISO = (d) => { const y = d.getUTCFullYear(); const m = String(d.getUTCMonth() + 1).padStart(2, '0'); const day = String(d.getUTCDate()).padStart(2, '0'); return `${y}-${m}-${day}`; };
   const addDaysUTC = (d, n) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + n));
   function easterDate(year){const a=year%19,b=Math.floor(year/100),c=year%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),month=Math.floor((h+l-7*m+114)/31)-1,day=((h+l-7*m+114)%31)+1;return new Date(Date.UTC(year,month,day));}
   function brazilBankHolidays(year){const set=new Set();const fixed=[[0,1],[3,21],[4,1],[8,7],[9,12],[10,2],[10,15],[10,20],[11,25]];fixed.forEach(([m,d])=>set.add(toISO(new Date(Date.UTC(year,m,d)))));const e=easterDate(year),gf=addDaysUTC(e,-2),cm=addDaysUTC(e,-48),ct=addDaysUTC(e,-47),cc=addDaysUTC(e,60);[gf,cm,ct,cc].forEach(dt=>set.add(toISO(dt)));return set;}
   function buildHolidaySetForRange(start,end){if(!USE_BANK_HOLIDAYS)return null;const y0=start.getUTCFullYear(),y1=end.getUTCFullYear();const set=new Set();for(let y=y0;y<=y1;y++){brazilBankHolidays(y).forEach(v=>set.add(v));}return set;}
-
-  const isBusinessDay = (d, holidaysSet) => {
-    const dow = d.getUTCDay(); // 0=Dom, 6=Sáb
-    if (dow === 0 || dow === 6) return false;
-    if (holidaysSet && holidaysSet.has(toISO(d))) return false;
-    return true;
-  };
-  const nextBusinessDay = (d, holidaysSet) => {
-    const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-    while (!isBusinessDay(x, holidaysSet)) x.setUTCDate(x.getUTCDate() + 1);
-    return x;
-  };
-  const calculateBusinessDays = (startDate, endDate, holidaysSet) => { // (início, fim]
-    let count = 0;
-    const cur = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
-    const end = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
-    cur.setUTCDate(cur.getUTCDate() + 1);
-    while (cur.getTime() <= end.getTime()) {
-      if (isBusinessDay(cur, holidaysSet)) count++;
-      cur.setUTCDate(cur.getUTCDate() + 1);
-    }
-    return count;
-  };
+  const isBusinessDay = (d, holidaysSet) => { const dow = d.getUTCDay(); if (dow === 0 || dow === 6) return false; if (holidaysSet && holidaysSet.has(toISO(d))) return false; return true; };
+  const nextBusinessDay = (d, holidaysSet) => { const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); while (!isBusinessDay(x, holidaysSet)) x.setUTCDate(x.getUTCDate() + 1); return x; };
+  const calculateBusinessDays = (startDate, endDate, holidaysSet) => { let count = 0; const cur = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate())); const end = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate())); cur.setUTCDate(cur.getUTCDate() + 1); while (cur.getTime() <= end.getTime()) { if (isBusinessDay(cur, holidaysSet)) count++; cur.setUTCDate(cur.getUTCDate() + 1); } return count; };
   const addMonthsSetDayUTC = (d, months, day) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+months, day));
   const periodRateFromDU = (du, cdiAnnual, stAnnual) => Math.pow(1 + cdiAnnual, du/252) * Math.pow(1 + stAnnual, du/252) - 1;
 
@@ -100,134 +72,60 @@ document.addEventListener('DOMContentLoaded', () => {
     const required = ['client-name','client-cnpj','proposal-date','loan-amount','grace-period','first-payment-date','installments','partners-qty','contract-rate','cdi-rate'];
     const missing = required.filter(id => !document.getElementById(id) || !document.getElementById(id).value);
     if (missing.length) { alert('Por favor, preencha todos os campos obrigatórios.'); return; }
-
     const proposalDateStr = document.getElementById('proposal-date').value;
     const firstPaymentDateStr = document.getElementById('first-payment-date').value;
     const proposalDate = new Date(proposalDateStr + 'T00:00:00');
     let firstPaymentDate = new Date(firstPaymentDateStr + 'T00:00:00');
-
     const loanAmount = parseFloat(document.getElementById('loan-amount').value);
     const gracePeriodDays = parseInt(document.getElementById('grace-period').value, 10);
     const installments = parseInt(document.getElementById('installments').value, 10);
     const partnersQty = parseInt(document.getElementById('partners-qty').value, 10);
     const contractRate = parseFloat(document.getElementById('contract-rate').value) / 100;
     const cdiRate = parseFloat(document.getElementById('cdi-rate').value) / 100;
-
-    // baseDay = dia da 1ª parcela (data-base mensal)
     const baseDay = firstPaymentDate.getUTCDate();
-
-    // Feriados para todo o range
     const prelimEnd = addMonthsSetDayUTC(firstPaymentDate, installments + 6, baseDay);
     const HOLIDAYS_SET = buildHolidaySetForRange(proposalDate, prelimEnd);
-
-    // Tabelas auxiliares
     const totalTermDays = gracePeriodDays + (installments * 30);
     const totalTermMonths = Math.ceil(totalTermDays / 30);
-
     const insuranceRatePercent = seguroTable.find(r => totalTermDays >= r.minDays && totalTermDays <= r.maxDays)?.ratePercent;
     if (!insuranceRatePercent) { alert('Prazo da operação fora da tabela de seguro.'); return; }
-
     const kFactor = fatorKTable.find(r => totalTermMonths >= r.minMonths && totalTermMonths <= r.maxMonths)?.value;
     if (!kFactor) { alert('Prazo da operação fora da tabela de fator K.'); return; }
-
     const totalInsuranceValue = loanAmount * (insuranceRatePercent / 100) * partnersQty;
     const numGracePayments = Math.floor(gracePeriodDays / 30);
     const numInsurancePayments = numGracePayments + (installments - 1);
     const insuranceInstallmentValue = numInsurancePayments > 0 ? totalInsuranceValue / numInsurancePayments : 0;
-
     const ecgN = Math.floor(totalTermDays / 30);
     const ecg = 0.4 * (0.8 * kFactor * loanAmount * ecgN);
-
-    // ===== Monta cronograma =====
     const paymentSchedule = [];
-    const cashFlow = []; // para CET
-
-    // Linha 0 (liberação) — custos plugados ao final
+    const cashFlow = [];
     paymentSchedule.push({ index: 0, date: proposalDate, capital: 0, interest: 0, insurance: insuranceInstallmentValue, totalPayment: 0, balance: loanAmount });
     cashFlow.push(loanAmount);
-
-    // Pró‑rata avulso: reconstruído a partir da 1ª parcela para coerência com a cadeia de bases
     const backRaw = addMonthsSetDayUTC(firstPaymentDate, -(numGracePayments + 1), baseDay);
     const avulsoDate = nextBusinessDay(backRaw, HOLIDAYS_SET);
-
     let lastPaymentDate = proposalDate;
-    if (avulsoDate.getTime() > proposalDate.getTime()) {
-      const duAvulso = calculateBusinessDays(lastPaymentDate, avulsoDate, HOLIDAYS_SET);
-      const jurosAvulso = loanAmount * periodRateFromDU(duAvulso, cdiRate, contractRate);
-      paymentSchedule.push({ index: 'A', date: avulsoDate, capital: 0, interest: jurosAvulso, insurance: 0, totalPayment: jurosAvulso, balance: loanAmount });
-      cashFlow.push(-jurosAvulso);
-      lastPaymentDate = avulsoDate;
-    }
-
-    // Carência — juros apenas
-    for (let i = 1; i <= numGracePayments; i++) {
-      const graceRaw = addMonthsSetDayUTC(avulsoDate, i, baseDay);
-      const graceDate = nextBusinessDay(graceRaw, HOLIDAYS_SET);
-      const du = calculateBusinessDays(lastPaymentDate, graceDate, HOLIDAYS_SET);
-      const interest = loanAmount * periodRateFromDU(du, cdiRate, contractRate);
-      paymentSchedule.push({ index: i, date: graceDate, capital: 0, interest, insurance: insuranceInstallmentValue, totalPayment: interest + insuranceInstallmentValue, balance: loanAmount });
-      cashFlow.push(-(interest + insuranceInstallmentValue));
-      lastPaymentDate = graceDate;
-    }
-
-    // Amortizações — SAC
+    if (avulsoDate.getTime() > proposalDate.getTime()) { const duAvulso = calculateBusinessDays(lastPaymentDate, avulsoDate, HOLIDAYS_SET); const jurosAvulso = loanAmount * periodRateFromDU(duAvulso, cdiRate, contractRate); paymentSchedule.push({ index: 'A', date: avulsoDate, capital: 0, interest: jurosAvulso, insurance: 0, totalPayment: jurosAvulso, balance: loanAmount }); cashFlow.push(-jurosAvulso); lastPaymentDate = avulsoDate; }
+    for (let i = 1; i <= numGracePayments; i++) { const graceRaw = addMonthsSetDayUTC(avulsoDate, i, baseDay); const graceDate = nextBusinessDay(graceRaw, HOLIDAYS_SET); const du = calculateBusinessDays(lastPaymentDate, graceDate, HOLIDAYS_SET); const interest = loanAmount * periodRateFromDU(du, cdiRate, contractRate); paymentSchedule.push({ index: i, date: graceDate, capital: 0, interest, insurance: insuranceInstallmentValue, totalPayment: interest + insuranceInstallmentValue, balance: loanAmount }); cashFlow.push(-(interest + insuranceInstallmentValue)); lastPaymentDate = graceDate; }
     let balance = loanAmount;
     const amortValue = loanAmount / installments;
-    for (let i = 1; i <= installments; i++) {
-      const amortRaw = addMonthsSetDayUTC(firstPaymentDate, i - 1, baseDay);
-      const amortDate = nextBusinessDay(amortRaw, HOLIDAYS_SET);
-      const du = calculateBusinessDays(lastPaymentDate, amortDate, HOLIDAYS_SET);
-      const interest = balance * periodRateFromDU(du, cdiRate, contractRate);
-      const insurancePayment = (i === installments) ? 0 : insuranceInstallmentValue;
-      const amort = (i === installments) ? balance : amortValue;
-      const totalPayment = amort + interest + insurancePayment;
-      balance = (i === installments) ? 0 : (balance - amort);
-      paymentSchedule.push({ index: numGracePayments + i, date: amortDate, capital: amort, interest, insurance: insurancePayment, totalPayment, balance });
-      cashFlow.push(-totalPayment);
-      lastPaymentDate = amortDate;
-    }
-
-    // IOF por trechos (fixo + diário até 365 dias)
-    const iofFixed = loanAmount * 0.0038; // 0,38%
-    const iofDailyRate = 0.000082; // 0,0082%/dia
+    for (let i = 1; i <= installments; i++) { const amortRaw = addMonthsSetDayUTC(firstPaymentDate, i - 1, baseDay); const amortDate = nextBusinessDay(amortRaw, HOLIDAYS_SET); const du = calculateBusinessDays(lastPaymentDate, amortDate, HOLIDAYS_SET); const interest = balance * periodRateFromDU(du, cdiRate, contractRate); const insurancePayment = (i === installments) ? 0 : insuranceInstallmentValue; const amort = (i === installments) ? balance : amortValue; const totalPayment = amort + interest + insurancePayment; balance = (i === installments) ? 0 : (balance - amort); paymentSchedule.push({ index: numGracePayments + i, date: amortDate, capital: amort, interest, insurance: insurancePayment, totalPayment, balance }); cashFlow.push(-totalPayment); lastPaymentDate = amortDate; }
+    const iofFixed = loanAmount * 0.0038;
+    const iofDailyRate = 0.000082;
     const cutoff = addDaysUTC(proposalDate, 365);
     let outstanding = loanAmount, cur = proposalDate, iofDaily = 0;
-    for (const row of paymentSchedule) {
-      const segEnd = row.date < cutoff ? row.date : cutoff;
-      if (segEnd > cur) {
-        const days = Math.floor((segEnd - cur) / 86400000);
-        iofDaily += outstanding * iofDailyRate * days;
-        cur = segEnd;
-      }
-      if (row.date <= cutoff && row.capital > 0) outstanding -= row.capital;
-      if (cur >= cutoff) break;
-    }
+    for (const row of paymentSchedule) { const segEnd = row.date < cutoff ? row.date : cutoff; if (segEnd > cur) { const days = Math.floor((segEnd - cur) / 86400000); iofDaily += outstanding * iofDailyRate * days; cur = segEnd; } if (row.date <= cutoff && row.capital > 0) outstanding -= row.capital; if (cur >= cutoff) break; }
     if (cur < cutoff) iofDaily += outstanding * iofDailyRate * Math.floor((cutoff - cur) / 86400000);
     const iof = iofFixed + iofDaily;
-
-    // Custos iniciais e CET
-    const upfrontTAC = 5000; // mantido
+    const upfrontTAC = 5000;
     const upfrontCosts = upfrontTAC + ecg + iof + insuranceInstallmentValue;
     paymentSchedule[0].totalPayment = upfrontCosts;
-    cashFlow[0] = loanAmount - upfrontCosts; // entrada líquida para IRR
-
+    cashFlow[0] = loanAmount - upfrontCosts;
     const totals = paymentSchedule.reduce((acc, row, idx) => { if (idx>0){ acc.capital+=row.capital; acc.interest+=row.interest; acc.totalPayment+=row.totalPayment;} return acc; }, { capital:0, interest:0, totalPayment:0 });
-
-    const totalAnnualRate = contractRate + cdiRate; // exibição
+    const totalAnnualRate = contractRate + cdiRate;
     const monthlyInterestRate = Math.pow(1 + totalAnnualRate, 1/12) - 1;
     const cetMonthly = calculateIRR(cashFlow);
     const cetAnnual = cetMonthly ? (Math.pow(1 + cetMonthly, 12) - 1) : 0;
-
-    const summaryData = {
-      clientName: document.getElementById('client-name').value,
-      clientCnpj: document.getElementById('client-cnpj').value,
-      proposalDate: proposalDateStr,
-      loanAmount, gracePeriodDays, firstPaymentDate: firstPaymentDateStr, installments,
-      contractRate: contractRate * 100, cdiRate: cdiRate * 100,
-      TAC: upfrontTAC, ecg, iof, insuranceInstallmentValue, upfrontCosts,
-      monthlyInterestRate, cetMonthly, cetAnnual,
-    };
-
+    const summaryData = { clientName: document.getElementById('client-name').value, clientCnpj: document.getElementById('client-cnpj').value, proposalDate: proposalDateStr, loanAmount, gracePeriodDays, firstPaymentDate: firstPaymentDateStr, installments, contractRate: contractRate * 100, cdiRate: cdiRate * 100, TAC: upfrontTAC, ecg, iof, insuranceInstallmentValue, upfrontCosts, monthlyInterestRate, cetMonthly, cetAnnual, };
     lastCalculationResults = { schedule: paymentSchedule, summary: summaryData, totals };
     displayResults(paymentSchedule, summaryData, totals);
   });
@@ -244,41 +142,18 @@ document.addEventListener('DOMContentLoaded', () => {
     $('summary-iof').textContent = fmtBRL(summary.iof);
     $('summary-insurance').textContent = fmtBRL(summary.insuranceInstallmentValue);
     $('summary-total-costs').textContent = fmtBRL(summary.upfrontCosts);
-
     const tbody = $('schedule-body');
     tbody.innerHTML = '';
-    for (const r of schedule) {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.index}</td><td>${fmtDate(r.date)}</td><td>${fmtBRL(r.capital)}</td><td>${fmtBRL(r.interest)}</td><td>${fmtBRL(r.insurance)}</td><td>${fmtBRL(r.totalPayment)}</td><td>${fmtBRL(r.balance)}</td>`;
-      tbody.appendChild(tr);
-    }
-
+    for (const r of schedule) { const tr = document.createElement('tr'); tr.innerHTML = `<td>${r.index}</td><td>${fmtDate(r.date)}</td><td>${fmtBRL(r.capital)}</td><td>${fmtBRL(r.interest)}</td><td>${fmtBRL(r.insurance)}</td><td>${fmtBRL(r.totalPayment)}</td><td>${fmtBRL(r.balance)}</td>`; tbody.appendChild(tr); }
     const table = $('schedule-table');
     let tfoot = table.querySelector('tfoot'); if (tfoot) tfoot.remove(); tfoot = table.createTFoot();
     const row = tfoot.insertRow(); row.className = 'table-totals-row';
     row.innerHTML = `<td colspan="2"><strong>TOTAIS</strong></td><td><strong>${fmtBRL(totals.capital)}</strong></td><td><strong>${fmtBRL(totals.interest)}</strong></td><td></td><td><strong>${fmtBRL(totals.totalPayment)}</strong></td><td></td>`;
-
     document.getElementById('disclaimer-text').textContent = `Esta simulação está sujeita à confirmação e/ou revisão antes do fechamento da operação, uma vez que reflete as condições vigentes de mercado e pode ser alterada a qualquer momento caso ocorram mudanças no cenário macroeconômico nacional e/ou internacional. Nenhuma suposição, projeção ou exemplificação contida neste material deve ser considerada garantia de eventos futuros e/ou de desempenho. Este documento não constitui oferta, convite, promessa de contratação ou qualquer obrigação.`;
-
     document.getElementById('results-area').classList.remove('hidden');
   }
 
-  function calculateIRR(cashFlow, guess=0.01){
-    const MAX=100, PREC=1e-7; let rate=guess;
-    for (let i=0;i<MAX;i++){
-      let npv=0, dnpv=0;
-      for (let j=0;j<cashFlow.length;j++){
-        const den=Math.pow(1+rate, j); if(den===0) return Infinity;
-        npv += cashFlow[j] / den;
-        dnpv -= j * cashFlow[j] / Math.pow(1+rate, j+1);
-      }
-      if (dnpv===0) return Infinity;
-      const newRate = rate - npv/dnpv;
-      if (Math.abs(newRate - rate) < PREC) return newRate;
-      rate = newRate;
-    }
-    return rate;
-  }
+  function calculateIRR(cashFlow, guess=0.01){ const MAX=100, PREC=1e-7; let rate=guess; for (let i=0;i<MAX;i++){ let npv=0, dnpv=0; for (let j=0;j<cashFlow.length;j++){ const den=Math.pow(1+rate, j); if(den===0) return Infinity; npv += cashFlow[j] / den; dnpv -= j * cashFlow[j] / Math.pow(1+rate, j+1); } if (dnpv===0) return Infinity; const newRate = rate - npv/dnpv; if (Math.abs(newRate - rate) < PREC) return newRate; rate = newRate; } return rate; }
 
   // ===== Exportação PDF =====
   document.getElementById('export-pdf-btn').addEventListener('click', () => {
@@ -289,40 +164,54 @@ document.addEventListener('DOMContentLoaded', () => {
     const margin=15, pageWidth=doc.internal.pageSize.width; let y=20;
     const primary=[0,90,156], text=[45,55,72], accent=[255,193,7];
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...primary);
-    doc.text('Simulação de Capital de Giro PEAC FGI', pageWidth/2, y, { align:'center' }); y+=7;
+    // --- CABEÇALHO ---
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14); // Fonte do título reduzida de 18 para 14
+    doc.setTextColor(...primary);
+    doc.text("Simulação de Capital de Giro PEAC FGI", margin, y);
+    y += 8;
 
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(...text);
-    doc.text('Desenvolvida por Agência Empresa Teresina (7625) - Banco do Brasil', pageWidth/2, y, { align:'center' }); y+=4;
+    doc.setDrawColor(...accent);
+    doc.setLineWidth(1.0);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 10;
 
-    doc.setDrawColor(...accent); doc.setLineWidth(1.0); doc.line(margin,y,pageWidth-margin,y); y+=10;
-
-    doc.setFontSize(10); doc.text('Prezado Cliente,', margin, y); y+=6;
-    const intro='Em atendimento à sua solicitação, informamos a COTAÇÃO INDICATIVA para contratação de BB CAPITAL DE GIRO PEAC FGI, nas seguintes condições:';
-    doc.text(intro, margin, y, { maxWidth: pageWidth - margin*2 }); y+=12;
-
-    doc.setFontSize(8); doc.setTextColor(128,128,128);
-    const bullets=[
-      '1. Precificação indicativa: sujeito à confirmação/revisão previamente ao fechamento da operação;',
-      '2. A presente cotação reflete as atuais condições de mercado, com projeção dos especialistas, podendo ser alterada a qualquer momento, caso ocorram mudanças no cenário macroeconômico nacional e/ou internacional;',
-      '3. Essa cotação tem validade de 2 dias a contar da data de sua emissão.'
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9); // Fonte do corpo reduzida de 10 para 9
+    doc.setTextColor(...text);
+    const introParagraphs = [
+        "Prezado Cliente,",
+        "Esta é uma simulação de operação de crédito baseada nos parâmetros da linha Capital de Giro PEAC-FGI. Trata-se de uma linha de crédito desenvolvida pelo Governo Federal, no âmbito do Programa Emergencial de Acesso a Crédito (PEAC), com garantia complementar do FGI - Fundo Garantidor para Investimentos, administrado pelo BNDES.",
+        "Como parte dos encargos é pós-fixada (atrelada ao CDI), os valores podem variar conforme a oscilação desse Indice. Por essa razão, este documento não constitui proposta, promessa, oferta ou convite. A decisão de contratação deve ser tomada pelo cliente após sua própria análise."
     ];
-    for (const t of bullets){ doc.text(t, margin, y, { maxWidth: pageWidth - margin*2 }); y+=8; }
-    y+=12;
+    for (const paragraph of introParagraphs) {
+        const splitText = doc.splitTextToSize(paragraph, pageWidth - margin * 2);
+        doc.text(splitText, margin, y);
+        y += (doc.getTextDimensions(splitText).h) + 4;
+    }
+    y += 5;
 
-    const lineH=6, blk=10, col2=pageWidth/2+5; let yL=y, yR=y;
+    // --- SEÇÃO DE RESUMO (Reorganizada e com fontes reduzidas) ---
+    const lineH=5, blk=8, col2=pageWidth/2+5; let yL=y, yR=y;
+    // Reduzindo o tamanho da fonte para o corpo do resumo
+    doc.setFontSize(9);
     const sub=(txt,x,y0)=>{doc.setFont('helvetica','bold'); doc.text(txt,x,y0); doc.setDrawColor(...accent); doc.setLineWidth(1.0); doc.line(x,y0+1.5,x+doc.getTextWidth(txt),y0+1.5); doc.setFont('helvetica','normal'); return y0+blk;};
+    
+    // Bloco Cliente
     yL=sub('Cliente',margin,yL);
     doc.text(`Nome: ${summary.clientName}`,margin,yL); yL+=lineH;
     doc.text(`CNPJ: ${summary.clientCnpj}`,margin,yL); yL+=lineH;
     doc.text(`Data da Proposta: ${fmtDate(new Date(summary.proposalDate+'T00:00:00'))}`,margin,yL); yL+=blk;
 
+    // NOVO Bloco Operação
+    yL=sub('Operação',margin,yL);
     doc.text(`Sistema de Reposição: SAC`,margin,yL); yL+=lineH;
     doc.text(`Valor a Financiar: ${fmtBRL(summary.loanAmount)}`,margin,yL); yL+=lineH;
     doc.text(`Carência: ${summary.gracePeriodDays} dias`,margin,yL); yL+=lineH;
     doc.text(`Data da 1ª Parcela: ${fmtDate(new Date(summary.firstPaymentDate+'T00:00:00'))}`,margin,yL); yL+=lineH;
     doc.text(`Parcelas: ${summary.installments}`,margin,yL);
 
+    // Bloco da Direita (Taxas e Custos)
     yR=sub('Taxas da Operação',col2,yR);
     doc.text(`Taxa Contratual: CDI + ${fmtPctNo(summary.contractRate)}% a.a.`,col2,yR); yR+=lineH;
     doc.text(`CDI: ${fmtPctNo(summary.cdiRate)}% a.a.`,col2,yR); yR+=lineH;
@@ -338,9 +227,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     y = Math.max(yL,yR) + 15;
 
+    // --- Tabela (Fonte INALTERADA, conforme solicitado) ---
     const tableBody = schedule.map(r=>[ r.index, fmtDate(r.date), fmtBRL(r.capital), fmtBRL(r.interest), fmtBRL(r.insurance), fmtBRL(r.totalPayment), fmtBRL(r.balance) ]);
     const tableFooter=[[ {content:'TOTAIS', colSpan:2, styles:{halign:'center', fontStyle:'bold'}}, {content:fmtBRL(totals.capital), styles:{halign:'right', fontStyle:'bold'}}, {content:fmtBRL(totals.interest), styles:{halign:'right', fontStyle:'bold'}}, '', {content:fmtBRL(totals.totalPayment), styles:{halign:'right', fontStyle:'bold'}}, '' ]];
-
     doc.autoTable({
       startY:y,
       head:[['#','Data','Capital (Amortização)','Juros','Prestamista','Valor a Pagar','Saldo Devedor']],
@@ -352,25 +241,30 @@ document.addEventListener('DOMContentLoaded', () => {
       footStyles:{ fillColor:[229,239,245], textColor:[45,55,72], fontStyle:'bold'},
       bodyStyles:{ textColor:[45,55,72]},
       alternateRowStyles:{ fillColor:[244,247,249]},
-      styles:{ fontSize:7, cellPadding:2 },
+      styles:{ fontSize:7, cellPadding:2 }, // <-- FONTE DA TABELA MANTIDA EM 7
       columnStyles:{0:{halign:'center'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'},6:{halign:'right'}},
-      didDrawPage:(data)=>{ doc.setFontSize(8); doc.setTextColor(128,128,128); doc.text(`Página ${data.pageNumber}`, pageWidth/2, doc.internal.pageSize.height-10, {align:'center'}); }
+      didDrawPage:(data)=>{
+          // Reduzindo fonte do número da página
+          doc.setFontSize(7);
+          doc.setTextColor(128,128,128);
+          doc.text(`Página ${data.pageNumber}`, pageWidth/2, doc.internal.pageSize.height-10, {align:'center'});
+      }
     });
 
     let y2 = doc.lastAutoTable.finalY;
     const pageHeight = doc.internal.pageSize.height;
     const bottomMargin = 20;
-
-    doc.setFontSize(7);
+    
+    // --- Rodapé (Fonte reduzida) ---
+    doc.setFontSize(7); // Fonte do disclaimer e rodapé final reduzida
     const disclaimer = `Esta simulação está sujeita à confirmação e/ou revisão antes do fechamento da operação, uma vez que reflete as condições vigentes de mercado e pode ser alterada a qualquer momento caso ocorram mudanças no cenário macroeconômico nacional e/ou internacional. Nenhuma suposição, projeção ou exemplificação contida neste material deve ser considerada garantia de eventos futuros e/ou de desempenho. Este documento não constitui oferta, convite, promessa de contratação ou qualquer obrigação.`;
     const split = doc.splitTextToSize(disclaimer, pageWidth - margin*2);
     const discH = (split.length * doc.getFontSize()) / doc.internal.scaleFactor;
     const spaceForLine = 15; const need = spaceForLine + discH;
     if (y2 + need > pageHeight - bottomMargin) { doc.addPage(); y2 = margin; }
     y2 += 5; doc.setDrawColor(0,90,156); doc.setLineWidth(0.5); doc.line(margin,y2,pageWidth-margin,y2); y2 += 7; doc.setFont('helvetica','normal'); doc.setTextColor(45,55,72); doc.text(split, margin, y2);
-
-    doc.setFontSize(7); doc.setTextColor(128,128,128); const footTxt = `Versão ${APP_VERSION} - Aplicação web desenvolvida por Francisco Eliciano. Contato: eliciano@outlook.com.br.`; doc.text(footTxt, pageWidth/2, pageHeight-15, {align:'center'});
-
+    doc.setTextColor(128,128,128); const footTxt = `Versão ${APP_VERSION} - Aplicação web desenvolvida por Francisco Eliciano. Contato: eliciano@outlook.com.br.`; doc.text(footTxt, pageWidth/2, pageHeight-15, {align:'center'});
+    
     doc.save(`Cotacao_Indicativa_PEAC_FGI_${summary.clientName.replace(/ /g,'_')}.pdf`);
   });
 });
