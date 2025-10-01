@@ -407,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let y = 20;
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
+        doc.setFontSize(12);
         doc.setTextColor(0, 90, 156);
         doc.text("Simulação de Capital de Giro PEAC FGI", margin, y);
         y += 8;
@@ -416,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
         doc.line(margin, y, pageWidth - margin, y);
         y += 10;
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
+        doc.setFontSize(7);
         doc.setTextColor(45, 55, 72);
         const introParagraphs = [
             "Prezado Cliente,",
