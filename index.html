@@ -16,16 +16,49 @@
     <main>
         <section id="simulator-form">
             <form id="loan-form">
-                <h2>Informações da Simulação</h2>
-
-                <div class="form-group">
-                    <label for="client-name">Cliente:</label>
-                    <input type="text" id="client-name" required>
+                <div class="form-header">
+                    <h2>Informações da Simulação</h2>
+                    <button type="button" id="edit-btn" disabled>Editar</button>
                 </div>
 
                 <div class="form-group">
                     <label for="client-cnpj">CNPJ:</label>
-                    <input type="text" id="client-cnpj" required>
+                    <input type="text" id="client-cnpj" required placeholder="Digite o CNPJ e tecle TAB">
+                </div>
+
+                <div class="form-group">
+                    <label for="client-name">Razão Social:</label>
+                    <input type="text" id="client-name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="client-fantasy-name">Nome Fantasia:</label>
+                    <input type="text" id="client-fantasy-name">
+                </div>
+
+                <div class="form-group">
+                    <label for="client-activity-start-date">Data de Início das Atividades:</label>
+                    <input type="text" id="client-activity-start-date">
+                </div>
+
+                <div class="form-group">
+                    <label for="client-legal-nature">Natureza Jurídica:</label>
+                    <input type="text" id="client-legal-nature">
+                </div>
+
+                <div class="form-group">
+                    <label for="client-main-activity">Atividade Principal da Empresa:</label>
+                    <input type="text" id="client-main-activity">
+                </div>
+
+                <div class="form-group">
+                    <label for="client-address">Endereço:</label>
+                    <input type="text" id="client-address">
+                </div>
+
+                <div class="form-group">
+                    <label for="client-partners">Sócio(s):</label>
+                    <textarea id="client-partners" rows="4"></textarea>
                 </div>
 
                 <div class="form-group">
@@ -39,7 +72,7 @@
 
                 <div class="form-group">
                     <label for="loan-amount">Valor a Financiar (R$):</label>
-                    <input type="number" id="loan-amount" step="0.01" placeholder="Ex: 50000.00" required>
+                    <input type="text" id="loan-amount" placeholder="50.000,00" required>
                 </div>
 
                 <div class="form-group">
@@ -59,17 +92,17 @@
 
                 <div class="form-group">
                     <label for="partners-qty">Quantidade de Sócios:</label>
-                    <input type="number" id="partners-qty" placeholder="Ex: 2" required>
+                    <input type="number" id="partners-qty" readonly>
                 </div>
 
                 <div class="form-group">
                     <label for="contract-rate">Taxa Contratual (% a.a.):</label>
-                    <input type="number" id="contract-rate" step="0.01" placeholder="Ex: 15.5" required>
+                    <input type="text" id="contract-rate" placeholder="15,50" required>
                 </div>
 
                 <div class="form-group">
                     <label for="cdi-rate">CDI anual (% a.a.):</label>
-                    <input type="number" id="cdi-rate" step="0.01" placeholder="Ex: 11.25" required>
+                    <input type="text" id="cdi-rate" placeholder="11,25" required>
                 </div>
 
                 <div class="form-actions">
@@ -125,6 +158,14 @@
 
              <div class="form-actions">
                 <button type="button" id="export-pdf-btn">Exportar para PDF</button>
+                <button type="button" id="generate-qr-btn">Gerar QR Code</button>
+            </div>
+
+            <div id="qr-code-container" class="hidden" style="text-align: center; margin-top: 20px;">
+                <h3>QR Code da Simulação</h3>
+                <div id="qr-code"></div>
+                <p style="font-size: 0.8em; color: #777;">Para recarregar esta simulação, use o link do QR Code e o código de acesso abaixo.</p>
+                <p><strong>Código de Acesso:</strong> <span id="qr-access-code" style="font-weight: bold; font-size: 1.2em; color: var(--primary-color);"></span></p>
             </div>
         </section>
 
@@ -134,10 +175,14 @@
         <!-- O conteúdo do rodapé será inserido dinamicamente via JavaScript -->
     </footer>
 
-    <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
-    <script src="https://unpkg.com/jspdf-autotable@latest/dist/jspdf.plugin.autotable.min.js"></script>
+    <!-- Bibliotecas Externas -->
+    <script src="https://unpkg.com/imask"></script> <!-- Para máscaras de input -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script> <!-- Para QR Code -->
+    <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script> <!-- Para PDF -->
+    <script src="https://unpkg.com/jspdf-autotable@latest/dist/jspdf.plugin.autotable.min.js"></script> <!-- Para tabelas no PDF -->
 
-    <script src="script.js"></script>
+    <!-- Script Principal da Aplicação -->
+    <script type="module" src="script.js"></script>
 
 </body>
 </html>
