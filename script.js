@@ -431,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
         y += 5;
 
         const lineH = 5, blk = 8, col2 = pageWidth / 2 + 5; let yL = y, yR = y;
-        doc.setFontSize(9);
+        doc.setFontSize(7);
         const sub = (txt, x, y0) => {
             doc.setFont('helvetica', 'bold'); doc.text(txt, x, y0); doc.setDrawColor(255, 193, 7); doc.setLineWidth(1.0);
             doc.line(x, y0 + 1.5, x + doc.getTextWidth(txt), y0 + 1.5); doc.setFont('helvetica', 'normal'); return y0 + blk;
