@@ -8,6 +8,8 @@
     --border-color: #e2e8f0;    /* Cinza para bordas */
     --white-color: #ffffff;
     --light-gray-bg: #f9fafb; /* Cinza para zebrar a tabela */
+    --success-color: #28a745;  /* Verde para sucesso/ativo */
+    --danger-color: #dc3545;   /* Vermelho para alertas/inválido */
 }
 
 body {
@@ -266,4 +268,162 @@ input[readonly], textarea[readonly] {
     background-color: #f4f7f9; /* Fundo cinza claro */
     color: #5a6268; /* Texto um pouco mais escuro */
     cursor: not-allowed;
+}
+
+/* --- NOVOS ESTILOS UX --- */
+
+/* Wrapper para o botão de editar e tooltip */
+.edit-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Tooltip (balão de dica) */
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltip-icon {
+    width: 20px;
+    height: 20px;
+    background-color: #6c757d;
+    color: var(--white-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    cursor: pointer;
+    font-style: italic;
+}
+
+.tooltip .tooltip-text {
+    visibility: hidden;
+    width: 250px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 8px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -125px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Notificação flutuante */
+.notification {
+    visibility: hidden;
+    opacity: 0;
+    background-color: var(--primary-color);
+    color: white;
+    text-align: center;
+    border-radius: 5px;
+    padding: 10px;
+    position: fixed;
+    z-index: 10;
+    left: 50%;
+    top: 20px;
+    transform: translateX(-50%);
+    transition: visibility 0s, opacity 0.5s linear;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+.notification.show {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Mensagem de carregamento do CNPJ */
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+#cnpj-loading-message {
+    margin-left: 10px;
+    font-size: 0.9em;
+    color: #6c757d;
+}
+
+/* Botão de alternância (Seguro) */
+.toggle-btn {
+    background-color: #6c757d; /* Cinza por padrão */
+    width: 100%; /* Ocupa a largura total do grupo */
+}
+
+.toggle-btn:hover {
+    background-color: #5a6268;
+}
+
+/* Estilos para botões no estado ATIVO (verde com check) */
+.toggle-btn.active, button.active {
+    background-color: var(--success-color);
+}
+
+.toggle-btn.active:hover, button.active:hover {
+    background-color: #218838; /* Verde mais escuro no hover */
+}
+
+.check-icon {
+    margin-left: 8px;
+    color: var(--white-color);
+}
+
+/* --- NOVOS ESTILOS PARA CONFIRMAÇÃO DE DATA --- */
+
+.input-with-icon-wrapper {
+    position: relative;
+}
+
+.input-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--danger-color);
+    font-weight: bold;
+}
+
+.invalid-field {
+    border-color: var(--danger-color) !important;
+}
+
+.confirmation-dialog {
+    background-color: #fffbe6; /* Amarelo claro */
+    border: 1px solid #ffeeba; /* Borda amarela */
+    border-radius: 4px;
+    padding: 15px;
+    margin-top: 10px;
+}
+
+.confirmation-dialog p {
+    margin: 0 0 10px 0;
+    font-size: 0.9em;
+}
+
+.confirmation-dialog button {
+    padding: 8px 15px;
+    font-size: 0.9em;
+    margin-right: 10px;
+}
+
+#confirm-date-change-btn {
+    background-color: var(--success-color);
+}
+
+#cancel-date-change-btn {
+    background-color: var(--danger-color);
 }
