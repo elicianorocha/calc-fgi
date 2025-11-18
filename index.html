@@ -27,12 +27,22 @@
             <form id="loan-form">
                 <div class="form-header">
                     <h2>Informações da Simulação</h2>
-                    <button type="button" id="edit-btn" disabled>Editar</button>
+                    <div class="edit-wrapper">
+                        <button type="button" id="edit-btn" disabled>Editar</button>
+                        <div class="tooltip">
+                            <span class="tooltip-icon">i</span>
+                            <span class="tooltip-text">Clique aqui caso precise alterar alguma informação da simulação, em seguida clique novamente em <strong>Simular</strong>.</span>
+                        </div>
+                    </div>
                 </div>
+                <div id="edit-notification" class="notification">Você já pode alterar os dados da simulação.</div>
 
                 <div class="form-group">
                     <label for="client-cnpj">CNPJ:</label>
-                    <input type="text" id="client-cnpj" required placeholder="Digite o CNPJ e tecle TAB">
+                    <div class="input-wrapper">
+                        <input type="text" id="client-cnpj" required placeholder="Digite o CNPJ e tecle TAB">
+                        <span id="cnpj-loading-message" class="hidden">Aguarde enquanto consultamos os dados...</span>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -90,13 +100,26 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="first-payment-date">Data 1ª Parcela:</label>
-                    <input type="date" id="first-payment-date" required>
+                    <label for="base-date">Data-Base:</label>
+                    <div class="input-with-icon-wrapper">
+                        <input type="number" id="base-date" placeholder="Dia do mês (1-28)" required min="1" max="28">
+                        <span id="base-date-icon" class="input-icon hidden"></span>
+                    </div>
                 </div>
 
                 <div class="form-group">
                     <label for="installments">Parcelas (meses):</label>
-                    <input type="number" id="installments" placeholder="Ex: 24" required>
+                    <input type="number" id="installments" placeholder="Ex: 24" required min="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="first-payment-date">Data 1ª Parcela:</label>
+                    <input type="date" id="first-payment-date" required readonly>
+                    <div id="date-change-confirmation" class="confirmation-dialog hidden">
+                        <p>Atenção: você alterou a data da 1ª Parcela. Dessa forma, a data inserida no campo "Data-Base" será desconsiderada. Confirma a alteração?</p>
+                        <button type="button" id="confirm-date-change-btn">SIM</button>
+                        <button type="button" id="cancel-date-change-btn">NÃO</button>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -105,13 +128,22 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="contract-rate">Taxa Contratual (% a.a.):</label>
+                    <label for="contract-rate">Sobretaxa (% a.a.):</label>
                     <input type="text" id="contract-rate" placeholder="15,50" required>
                 </div>
 
                 <div class="form-group">
                     <label for="cdi-rate">CDI anual (% a.a.):</label>
                     <input type="text" id="cdi-rate" placeholder="11,25" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="tac-amount">TAC (R$):</label>
+                    <input type="text" id="tac-amount" placeholder="5.000,00" required>
+                </div>
+
+                <div class="form-group">
+                    <button type="button" id="toggle-insurance-btn" class="toggle-btn">Incluir Seguro Prestamista</button>
                 </div>
 
                 <div class="form-actions">
@@ -127,12 +159,9 @@
                 <h3>Resumo da Operação</h3>
                 <p><strong>Cliente:</strong> <span id="summary-client-name"></span></p>
                 <p><strong>CNPJ:</strong> <span id="summary-client-cnpj"></span></p>
-
                 <p><strong>Taxa de Juros Efetiva:</strong> <span id="summary-monthly-rate"></span></p>
-
                 <p><strong>Custo Efetivo Total (CET) ao mês:</strong> <span id="summary-cet-monthly"></span></p>
                 <p><strong>Custo Efetivo Total (CET) ao ano:</strong> <span id="summary-cet-annual"></span></p>
-
                 <h4>Custos Iniciais (Pagos na Liberação)</h4>
                 <p><strong>TAC:</strong> <span id="summary-tac"></span></p>
                 <p><strong>ECG:</strong> <span id="summary-ecg"></span></p>
@@ -167,14 +196,6 @@
 
              <div class="form-actions">
                 <button type="button" id="export-pdf-btn">Exportar para PDF</button>
-                <button type="button" id="generate-qr-btn">Gerar QR Code</button>
-            </div>
-
-            <div id="qr-code-container" class="hidden" style="text-align: center; margin-top: 20px;">
-                <h3>QR Code da Simulação</h3>
-                <div id="qr-code"></div>
-                <p style="font-size: 0.8em; color: #777;">Para recarregar esta simulação, use o link do QR Code e o código de acesso abaixo.</p>
-                <p><strong>Código de Acesso:</strong> <span id="qr-access-code" style="font-weight: bold; font-size: 1.2em; color: var(--primary-color);"></span></p>
             </div>
         </section>
 
@@ -186,7 +207,6 @@
 
     <!-- Bibliotecas Externas -->
     <script src="https://unpkg.com/imask"></script> <!-- Para máscaras de input -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script> <!-- Para QR Code -->
     <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script> <!-- Para PDF -->
     <script src="https://unpkg.com/jspdf-autotable@latest/dist/jspdf.plugin.autotable.min.js"></script> <!-- Para tabelas no PDF -->
 

@@ -1,3 +1,4 @@
+
 import { MODO_MANUTENCAO, APP_VERSION, fatorKTable, seguroTable } from './config.js';
 import {
     fmtBRL, fmtDate, fmtPct, fmtPctNo, addDaysUTC, addMonthsSetDayUTC,
@@ -6,6 +7,9 @@ import {
 
 // --- Estado Global da Aplicação ---
 let latestSimData = null;
+let isInsuranceIncluded = false;
+let isBaseDateOverridden = false;
+let originalFirstPaymentDate = '';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- MODO MANUTENÇÃO ---
@@ -38,7 +42,20 @@ document.addEventListener('DOMContentLoaded', () => {
         loanAmount: document.getElementById('loan-amount'),
         contractRate: document.getElementById('contract-rate'),
         cdiRate: document.getElementById('cdi-rate'),
+        tacAmount: document.getElementById('tac-amount'),
+        baseDate: document.getElementById('base-date'),
+        baseDateIcon: document.getElementById('base-date-icon'),
+        proposalDate: document.getElementById('proposal-date'),
+        gracePeriod: document.getElementById('grace-period'),
+        firstPaymentDate: document.getElementById('first-payment-date'),
         editBtn: document.getElementById('edit-btn'),
+        calculateBtn: document.getElementById('calculate-btn'),
+        toggleInsuranceBtn: document.getElementById('toggle-insurance-btn'),
+        cnpjLoadingMessage: document.getElementById('cnpj-loading-message'),
+        editNotification: document.getElementById('edit-notification'),
+        dateChangeConfirmation: document.getElementById('date-change-confirmation'),
+        confirmDateChangeBtn: document.getElementById('confirm-date-change-btn'),
+        cancelDateChangeBtn: document.getElementById('cancel-date-change-btn'),
         allApiFields: [
             document.getElementById('client-name'),
             document.getElementById('client-fantasy-name'),
@@ -68,33 +85,42 @@ document.addEventListener('DOMContentLoaded', () => {
             mapToRadix: ['.'],
         };
         masks.loanAmount = IMask(formElements.loanAmount, currencyOptions);
+        masks.tacAmount = IMask(formElements.tacAmount, currencyOptions);
         masks.contractRate = IMask(formElements.contractRate, { ...currencyOptions, scale: 2 });
         masks.cdiRate = IMask(formElements.cdiRate, { ...currencyOptions, scale: 2 });
     };
 
     // --- LÓGICA DE CONTROLE DO FORMULÁRIO ---
     const setFieldsReadOnly = (isReadOnly) => {
-        // Itera sobre todos os campos da API, incluindo o CNPJ, para definir o estado
         [formElements.cnpj, ...formElements.allApiFields].forEach(field => {
-            if (field) {
-                field.readOnly = isReadOnly;
-            }
+            if (field) field.readOnly = isReadOnly;
         });
-
-        // O botão editar é o inverso do estado readonly
         formElements.editBtn.disabled = !isReadOnly;
+        formElements.firstPaymentDate.readOnly = isReadOnly;
+    };
+
+    const updateButtonState = (button, isActive, text) => {
+        if (isActive) {
+            button.classList.add('active');
+            button.innerHTML = `${text} <span class="check-icon">✔</span>`;
+        } else {
+            button.classList.remove('active');
+            button.innerHTML = text;
+        }
     };
 
     // --- LÓGICA DA API DE CNPJ ---
     const setupCnpjListener = () => {
-        const originalLabel = document.querySelector('label[for="client-cnpj"]').textContent;
-
+        let loadingTimeout;
         formElements.cnpj.addEventListener('blur', async () => {
             const cnpj = masks.cnpj.unmaskedValue;
             if (cnpj.length !== 14) return;
 
+            loadingTimeout = setTimeout(() => {
+                formElements.cnpjLoadingMessage.classList.remove('hidden');
+            }, 1000);
+
             const url = `https://brasilapi.com.br/api/cnpj/v1/${cnpj}`;
-            document.querySelector('label[for="client-cnpj"]').textContent = 'Buscando CNPJ...';
             formElements.cnpj.disabled = true;
 
             try {
@@ -107,34 +133,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 formElements.naturezaJuridica.value = data.natureza_juridica || '';
                 formElements.atividadePrincipal.value = data.cnae_fiscal_descricao || '';
                 formElements.endereco.value = `${data.logradouro || ''}, ${data.numero || ''} - ${data.bairro || ''}, ${data.municipio || ''} - ${data.uf || ''}`;
-
-                if (data.data_inicio_atividade) {
-                    formElements.inicioAtividade.value = fmtDate(new Date(data.data_inicio_atividade + 'T00:00:00'));
-                } else {
-                    formElements.inicioAtividade.value = '';
-                }
+                formElements.inicioAtividade.value = data.data_inicio_atividade ? fmtDate(new Date(data.data_inicio_atividade + 'T00:00:00')) : '';
 
                 if (data.qsa && data.qsa.length > 0) {
                     formElements.qtdSocios.value = data.qsa.length;
-                    formElements.socios.value = data.qsa.map(socio => {
-                        const entryDate = socio.data_entrada_sociedade ? fmtDate(new Date(socio.data_entrada_sociedade + 'T00:00:00')) : 'N/A';
-                        return `${socio.nome_socio} (${socio.qualificacao_socio || 'Sócio'}) - Admissão: ${entryDate}`;
-                    }).join('\n');
+                    formElements.socios.value = data.qsa.map(socio => `${socio.nome_socio} (${socio.qualificacao_socio || 'Sócio'})`).join('\n');
                 } else {
                     formElements.qtdSocios.value = 0;
                     formElements.socios.value = 'Nenhum sócio encontrado.';
                 }
-
-                // Trava os campos apenas em caso de sucesso
                 setFieldsReadOnly(true);
-
             } catch (error) {
                 console.error('Erro ao buscar CNPJ:', error);
                 alert('Não foi possível buscar os dados do CNPJ. Verifique o número e a sua conexão.');
-                // Garante que os campos permaneçam editáveis em caso de erro
                 setFieldsReadOnly(false);
             } finally {
-                document.querySelector('label[for="client-cnpj"]').textContent = originalLabel;
+                clearTimeout(loadingTimeout);
+                formElements.cnpjLoadingMessage.classList.add('hidden');
                 formElements.cnpj.disabled = false;
             }
         });
@@ -144,80 +159,81 @@ document.addEventListener('DOMContentLoaded', () => {
     const setupEditButtonListener = () => {
         formElements.editBtn.addEventListener('click', () => {
             setFieldsReadOnly(false);
-            formElements.cnpj.readOnly = false; // Libera o CNPJ também
-            formElements.editBtn.disabled = true; // Desabilita o próprio botão de editar
+            formElements.firstPaymentDate.readOnly = false;
+            formElements.editBtn.disabled = true;
+            updateButtonState(formElements.calculateBtn, false, 'Simular');
+
+            isBaseDateOverridden = false;
+            formElements.baseDate.classList.remove('invalid-field');
+            formElements.baseDateIcon.classList.add('hidden');
+            updateFirstPaymentDate();
+            originalFirstPaymentDate = formElements.firstPaymentDate.value;
+
+            formElements.editNotification.classList.add('show');
+            setTimeout(() => {
+                formElements.editNotification.classList.remove('show');
+            }, 3000);
         });
     };
 
-    // --- LÓGICA DO QR CODE ---
-    const setupQrCodeGenerator = () => {
-        const generateBtn = document.getElementById('generate-qr-btn');
-        const qrCodeContainer = document.getElementById('qr-code-container');
-        const qrCodeDiv = document.getElementById('qr-code');
-        const accessCodeSpan = document.getElementById('qr-access-code');
-
-        generateBtn.addEventListener('click', () => {
-            const fields = ['client-cnpj', 'proposal-date', 'loan-amount', 'grace-period', 'first-payment-date', 'installments', 'contract-rate', 'cdi-rate'];
-            const params = new URLSearchParams();
-
-            fields.forEach(id => {
-                const input = document.getElementById(id);
-                const mask = masks[id];
-                const value = mask ? mask.unmaskedValue : input.value;
-                if (value) params.set(id, value);
-            });
-
-            const accessCode = Math.floor(1000 + Math.random() * 9000).toString();
-            params.set('code', accessCode);
-
-            const baseUrl = window.location.origin + window.location.pathname;
-            const fullUrl = `${baseUrl}?${params.toString()}`;
-
-            qrCodeDiv.innerHTML = '';
-            try {
-                const qr = qrcode(0, 'L');
-                qr.addData(fullUrl);
-                qr.make();
-                qrCodeDiv.innerHTML = qr.createImgTag(5, 10);
-                accessCodeSpan.textContent = accessCode;
-                qrCodeContainer.classList.remove('hidden');
-            } catch (e) {
-                alert('Erro ao gerar o QR Code.');
-                console.error(e);
-            }
+    // --- LÓGICA DO BOTÃO DE SEGURO ---
+    const setupInsuranceButtonListener = () => {
+        formElements.toggleInsuranceBtn.addEventListener('click', () => {
+            isInsuranceIncluded = !isInsuranceIncluded;
+            updateButtonState(formElements.toggleInsuranceBtn, isInsuranceIncluded, isInsuranceIncluded ? 'Seguro Incluído' : 'Incluir Seguro Prestamista');
         });
     };
 
-    const loadDataFromUrl = () => {
-        const params = new URLSearchParams(window.location.search);
-        const accessCode = params.get('code');
-        if (!accessCode) return;
+    // --- CÁLCULO E ALTERAÇÃO MANUAL DA DATA DA 1ª PARCELA ---
+    const updateFirstPaymentDate = () => {
+        if (isBaseDateOverridden) return;
 
-        const enteredCode = prompt("Para carregar os dados da simulação, por favor, insira o código de acesso de 4 dígitos:");
-        if (enteredCode !== accessCode) {
-            alert("Código de acesso incorreto.");
-            window.history.replaceState({}, document.title, window.location.pathname);
+        const proposalDateStr = formElements.proposalDate.value;
+        const gracePeriod = parseInt(formElements.gracePeriod.value, 10);
+        const baseDay = parseInt(formElements.baseDate.value, 10);
+
+        if (!proposalDateStr || isNaN(gracePeriod) || isNaN(baseDay)) {
+            formElements.firstPaymentDate.value = '';
             return;
         }
 
-        let dataLoaded = false;
-        params.forEach((value, key) => {
-            const input = document.getElementById(key);
-            const mask = masks[key];
-            if (mask) {
-                mask.unmaskedValue = value;
-                dataLoaded = true;
-            } else if (input) {
-                input.value = value;
-                dataLoaded = true;
-            }
+        const proposalDate = new Date(proposalDateStr + 'T12:00:00Z');
+        const calculatedDate = addDaysUTC(proposalDate, gracePeriod + 30);
+        const finalDate = new Date(Date.UTC(calculatedDate.getUTCFullYear(), calculatedDate.getUTCMonth(), baseDay));
+
+        const year = finalDate.getUTCFullYear();
+        const month = String(finalDate.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(finalDate.getUTCDate()).padStart(2, '0');
+
+        formElements.firstPaymentDate.value = `${year}-${month}-${day}`;
+        originalFirstPaymentDate = formElements.firstPaymentDate.value;
+    };
+
+    const handleManualDateChange = () => {
+        if (formElements.firstPaymentDate.readOnly) return;
+        if (formElements.firstPaymentDate.value !== originalFirstPaymentDate) {
+            formElements.dateChangeConfirmation.classList.remove('hidden');
+        }
+    };
+
+    const setupDateChangeConfirmationListeners = () => {
+        formElements.firstPaymentDate.addEventListener('change', handleManualDateChange);
+
+        formElements.confirmDateChangeBtn.addEventListener('click', () => {
+            isBaseDateOverridden = true;
+            formElements.baseDate.classList.add('invalid-field');
+            formElements.baseDateIcon.innerHTML = 'X';
+            formElements.baseDateIcon.classList.remove('hidden');
+            formElements.dateChangeConfirmation.classList.add('hidden');
+            originalFirstPaymentDate = formElements.firstPaymentDate.value;
         });
 
-        if (dataLoaded) {
-            alert('Dados da simulação carregados com sucesso!');
-            formElements.cnpj.dispatchEvent(new Event('blur'));
-        }
-        window.history.replaceState({}, document.title, window.location.pathname);
+        formElements.cancelDateChangeBtn.addEventListener('click', () => {
+            formElements.firstPaymentDate.value = originalFirstPaymentDate;
+            formElements.dateChangeConfirmation.classList.add('hidden');
+            formElements.firstPaymentDate.readOnly = true;
+            formElements.editBtn.disabled = false;
+        });
     };
 
     // --- FUNÇÃO DE EXIBIÇÃO DE RESULTADOS ---
@@ -236,11 +252,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tbody = $('schedule-body');
         tbody.innerHTML = '';
-        for (const r of schedule) {
+        schedule.forEach(r => {
             const tr = document.createElement('tr');
             tr.innerHTML = `<td>${r.index}</td><td>${fmtDate(r.date)}</td><td>${fmtBRL(r.capital)}</td><td>${fmtBRL(r.interest)}</td><td>${fmtBRL(r.insurance)}</td><td>${fmtBRL(r.totalPayment)}</td><td>${fmtBRL(r.balance)}</td>`;
             tbody.appendChild(tr);
-        }
+        });
 
         const table = $('schedule-table');
         let tfoot = table.querySelector('tfoot');
@@ -250,73 +266,74 @@ document.addEventListener('DOMContentLoaded', () => {
         row.className = 'table-totals-row';
         row.innerHTML = `<td colspan="2"><strong>TOTAIS</strong></td><td><strong>${fmtBRL(totals.capital)}</strong></td><td><strong>${fmtBRL(totals.interest)}</strong></td><td></td><td><strong>${fmtBRL(totals.totalPayment)}</strong></td><td></td>`;
 
-        document.getElementById('disclaimer-text').textContent = `Esta simulação está sujeita à confirmação e/ou revisão antes do fechamento da operação, uma vez que reflete as condições vigentes de mercado e pode ser alterada a qualquer momento caso ocorram mudanças no cenário macroeconômico nacional e/ou internacional. Nenhuma suposição, projeção ou exemplificação contida neste material deve ser considerada garantia de eventos futuros e/ou de desempenho. Este documento não constitui oferta, convite, promessa de contratação ou qualquer obrigação.`;
-        document.getElementById('results-area').classList.remove('hidden');
+        $('disclaimer-text').textContent = `Esta simulação está sujeita à confirmação e/ou revisão antes do fechamento da operação, uma vez que reflete as condições vigentes de mercado e pode ser alterada a qualquer momento caso ocorram mudanças no cenário macroeconômico nacional e/ou internacional. Nenhuma suposição, projeção ou exemplificação contida neste material deve ser considerada garantia de eventos futuros e/ou de desempenho. Este documento não constitui oferta, convite, promessa de contratação ou qualquer obrigação.`;
+        $('results-area').classList.remove('hidden');
     }
     
-    // --- INICIALIZAÇÃO DOS MÓDULOS ---
+    // --- INICIALIZAÇÃO ---
     setupInputMasks();
     setupCnpjListener();
-    setupEditButtonListener(); // Adicionando a inicialização do novo listener
-    setupQrCodeGenerator();
-    loadDataFromUrl();
+    setupEditButtonListener();
+    setupInsuranceButtonListener();
+    setupDateChangeConfirmationListeners();
 
-    // Estado inicial dos campos
+    ['proposal-date', 'grace-period', 'base-date'].forEach(id => {
+        document.getElementById(id).addEventListener('change', updateFirstPaymentDate);
+    });
+
     setFieldsReadOnly(false);
     formElements.editBtn.disabled = true;
 
+    // --- EVENT LISTENER DO BOTÃO SIMULAR ---
+    formElements.calculateBtn.addEventListener('click', () => {
+        const required = ['client-name', 'client-cnpj', 'proposal-date', 'loan-amount', 'grace-period', 'installments', 'partners-qty', 'contract-rate', 'cdi-rate', 'tac-amount'];
+        if (!isBaseDateOverridden) {
+            required.push('base-date');
+        }
 
-    // --- EVENT LISTENERS (BOTÕES) ---
-    document.getElementById('calculate-btn').addEventListener('click', () => {
-        const required = ['client-name', 'client-cnpj', 'proposal-date', 'loan-amount', 'grace-period', 'first-payment-date', 'installments', 'partners-qty', 'contract-rate', 'cdi-rate'];
         if (required.some(id => !document.getElementById(id)?.value)) {
             alert('Por favor, preencha todos os campos obrigatórios.');
             return;
         }
 
-        const proposalDateStr = document.getElementById('proposal-date').value;
-        const firstPaymentDateStr = document.getElementById('first-payment-date').value;
+        const proposalDateStr = formElements.proposalDate.value;
+        const firstPaymentDateStr = formElements.firstPaymentDate.value;
         const proposalDate = new Date(proposalDateStr + 'T00:00:00');
         const firstPaymentDate = new Date(firstPaymentDateStr + 'T00:00:00');
+
+        const baseDay = isBaseDateOverridden
+            ? firstPaymentDate.getUTCDate()
+            : parseInt(formElements.baseDate.value, 10);
 
         const loanAmount = parseFloat(masks.loanAmount.unmaskedValue);
         const contractRate = parseFloat(masks.contractRate.unmaskedValue) / 100;
         const cdiRate = parseFloat(masks.cdiRate.unmaskedValue) / 100;
-
-        const gracePeriodDays = parseInt(document.getElementById('grace-period').value, 10);
+        const upfrontTAC = parseFloat(masks.tacAmount.unmaskedValue);
+        const gracePeriodDays = parseInt(formElements.gracePeriod.value, 10);
         const installments = parseInt(document.getElementById('installments').value, 10);
         const partnersQty = parseInt(document.getElementById('partners-qty').value, 10);
-
-        const baseDay = firstPaymentDate.getUTCDate();
         const prelimEnd = addMonthsSetDayUTC(firstPaymentDate, installments + 6, baseDay);
         const HOLIDAYS_SET = buildHolidaySetForRange(proposalDate, prelimEnd);
         const totalTermDays = gracePeriodDays + (installments * 30);
         const totalTermMonths = Math.ceil(totalTermDays / 30);
-
         const insuranceRatePercent = seguroTable.find(r => totalTermDays >= r.minDays && totalTermDays <= r.maxDays)?.ratePercent;
-        if (!insuranceRatePercent) { alert('Prazo da operação fora da tabela de seguro.'); return; }
-
+        if (isInsuranceIncluded && !insuranceRatePercent) { alert('Prazo da operação fora da tabela de seguro.'); return; }
         const kFactor = fatorKTable.find(r => totalTermMonths >= r.minMonths && totalTermMonths <= r.maxMonths)?.value;
         if (!kFactor) { alert('Prazo da operação fora da tabela de fator K.'); return; }
-
-        const totalInsuranceValue = loanAmount * (insuranceRatePercent / 100) * partnersQty;
+        const totalInsuranceValue = isInsuranceIncluded ? loanAmount * (insuranceRatePercent / 100) * partnersQty : 0;
         const numGracePayments = Math.floor(gracePeriodDays / 30);
         const numInsurancePayments = numGracePayments + (installments - 1);
-        const insuranceInstallmentValue = numInsurancePayments > 0 ? totalInsuranceValue / numInsurancePayments : 0;
+        const insuranceInstallmentValue = (isInsuranceIncluded && numInsurancePayments > 0) ? totalInsuranceValue / numInsurancePayments : 0;
         const ecgN = Math.floor(totalTermDays / 30);
         const ecg = 0.4 * (0.8 * kFactor * loanAmount * ecgN);
-
         const paymentSchedule = [];
         const cashFlow = [];
         paymentSchedule.push({ index: 0, date: proposalDate, capital: 0, interest: 0, insurance: insuranceInstallmentValue, totalPayment: 0, balance: loanAmount });
         cashFlow.push(loanAmount);
-
         const periodRateFromDU = (du, cdi, st) => Math.pow(1 + cdi, du / 252) * Math.pow(1 + st, du / 252) - 1;
-
         const backRaw = addMonthsSetDayUTC(firstPaymentDate, -(numGracePayments + 1), baseDay);
         const avulsoDate = nextBusinessDay(backRaw, HOLIDAYS_SET);
         let lastPaymentDate = proposalDate;
-
         if (avulsoDate.getTime() > proposalDate.getTime()) {
             const duAvulso = calculateBusinessDays(lastPaymentDate, avulsoDate, HOLIDAYS_SET);
             const jurosAvulso = loanAmount * periodRateFromDU(duAvulso, cdiRate, contractRate);
@@ -324,7 +341,6 @@ document.addEventListener('DOMContentLoaded', () => {
             cashFlow.push(-jurosAvulso);
             lastPaymentDate = avulsoDate;
         }
-
         for (let i = 1; i <= numGracePayments; i++) {
             const graceRaw = addMonthsSetDayUTC(avulsoDate, i, baseDay);
             const graceDate = nextBusinessDay(graceRaw, HOLIDAYS_SET);
@@ -334,7 +350,6 @@ document.addEventListener('DOMContentLoaded', () => {
             cashFlow.push(-(interest + insuranceInstallmentValue));
             lastPaymentDate = graceDate;
         }
-
         let balance = loanAmount;
         const amortValue = loanAmount / installments;
         for (let i = 1; i <= installments; i++) {
@@ -350,7 +365,6 @@ document.addEventListener('DOMContentLoaded', () => {
             cashFlow.push(-totalPayment);
             lastPaymentDate = amortDate;
         }
-
         const iofFixed = loanAmount * 0.0038;
         const iofDailyRate = 0.000082;
         const cutoff = addDaysUTC(proposalDate, 365);
@@ -366,28 +380,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cur >= cutoff) break;
         }
         if (cur < cutoff) iofDaily += outstanding * iofDailyRate * Math.floor((cutoff - cur) / 86400000);
-
         const iof = iofFixed + iofDaily;
-        const upfrontTAC = 5000;
         const upfrontCosts = upfrontTAC + ecg + iof + insuranceInstallmentValue;
         paymentSchedule[0].totalPayment = upfrontCosts;
         cashFlow[0] = loanAmount - upfrontCosts;
-
         const totals = paymentSchedule.reduce((acc, row, idx) => {
             if (idx > 0) { acc.capital += row.capital; acc.interest += row.interest; acc.totalPayment += row.totalPayment; }
             return acc;
         }, { capital: 0, interest: 0, totalPayment: 0 });
-
         const totalAnnualRate = contractRate + cdiRate;
         const monthlyInterestRate = Math.pow(1 + totalAnnualRate, 1 / 12) - 1;
         const cetMonthly = calculateIRR(cashFlow);
         const cetAnnual = cetMonthly ? (Math.pow(1 + cetMonthly, 12) - 1) : 0;
-
         latestSimData = {
             schedule: paymentSchedule,
             summary: {
-                clientName: document.getElementById('client-name').value,
-                clientCnpj: document.getElementById('client-cnpj').value,
+                clientName: document.getElementById('client-name').value, clientCnpj: document.getElementById('client-cnpj').value,
                 proposalDate: proposalDateStr, loanAmount, gracePeriodDays, firstPaymentDate: firstPaymentDateStr, installments,
                 contractRate: contractRate * 100, cdiRate: cdiRate * 100, TAC: upfrontTAC, ecg, iof, insuranceInstallmentValue, upfrontCosts,
                 monthlyInterestRate, cetMonthly, cetAnnual,
@@ -395,15 +403,21 @@ document.addEventListener('DOMContentLoaded', () => {
             totals
         };
         displayResults(latestSimData.schedule, latestSimData.summary, latestSimData.totals);
+        updateButtonState(formElements.calculateBtn, true, 'Simulação Concluída');
     });
 
     document.getElementById('export-pdf-btn').addEventListener('click', () => {
-        if (!latestSimData) { alert('Por favor, primeiro realize uma simulação.'); return; }
+        if (!latestSimData) {
+            alert('Por favor, primeiro realize uma simulação.');
+            return;
+        }
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const { schedule, summary, totals } = latestSimData;
-        const margin = 15, pageWidth = doc.internal.pageSize.width, bottomMargin = 20;
+        const margin = 15,
+            pageWidth = doc.internal.pageSize.width,
+            bottomMargin = 20;
         let y = 20;
 
         doc.setFont('helvetica', 'bold');
@@ -430,47 +444,80 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         y += 5;
 
-        const lineH = 5, blk = 8, col2 = pageWidth / 2 + 5; let yL = y, yR = y;
+        const lineH = 5,
+            blk = 8,
+            col2 = pageWidth / 2 + 5;
+        let yL = y,
+            yR = y;
         doc.setFontSize(7);
         const sub = (txt, x, y0) => {
-            doc.setFont('helvetica', 'bold'); doc.text(txt, x, y0); doc.setDrawColor(255, 193, 7); doc.setLineWidth(1.0);
-            doc.line(x, y0 + 1.5, x + doc.getTextWidth(txt), y0 + 1.5); doc.setFont('helvetica', 'normal'); return y0 + blk;
+            doc.setFont('helvetica', 'bold');
+            doc.text(txt, x, y0);
+            doc.setDrawColor(255, 193, 7);
+            doc.setLineWidth(1.0);
+            doc.line(x, y0 + 1.5, x + doc.getTextWidth(txt), y0 + 1.5);
+            doc.setFont('helvetica', 'normal');
+            return y0 + blk;
         };
         yL = sub('Cliente', margin, yL);
-        doc.text(`Nome: ${summary.clientName}`, margin, yL); yL += lineH;
-        doc.text(`CNPJ: ${summary.clientCnpj}`, margin, yL); yL += lineH;
-        doc.text(`Data da Proposta: ${fmtDate(new Date(summary.proposalDate + 'T00:00:00'))}`, margin, yL); yL += blk;
+        doc.text(`Nome: ${summary.clientName}`, margin, yL);
+        yL += lineH;
+        doc.text(`CNPJ: ${summary.clientCnpj}`, margin, yL);
+        yL += lineH;
+        doc.text(`Data da Proposta: ${fmtDate(new Date(summary.proposalDate + 'T00:00:00'))}`, margin, yL);
+        yL += blk;
         yL = sub('Operação', margin, yL);
-        doc.text(`Sistema de Reposição: SAC`, margin, yL); yL += lineH;
-        doc.text(`Valor a Financiar: ${fmtBRL(summary.loanAmount)}`, margin, yL); yL += lineH;
-        doc.text(`Carência: ${summary.gracePeriodDays} dias`, margin, yL); yL += lineH;
-        doc.text(`Data da 1ª Parcela: ${fmtDate(new Date(summary.firstPaymentDate + 'T00:00:00'))}`, margin, yL); yL += lineH;
+        doc.text(`Sistema de Reposição: SAC`, margin, yL);
+        yL += lineH;
+        doc.text(`Valor a Financiar: ${fmtBRL(summary.loanAmount)}`, margin, yL);
+        yL += lineH;
+        doc.text(`Carência: ${summary.gracePeriodDays} dias`, margin, yL);
+        yL += lineH;
+        doc.text(`Data da 1ª Parcela: ${fmtDate(new Date(summary.firstPaymentDate + 'T00:00:00'))}`, margin, yL);
+        yL += lineH;
         doc.text(`Parcelas: ${summary.installments}`, margin, yL);
         yR = sub('Taxas da Operação', col2, yR);
-        doc.text(`Taxa Contratual: CDI + ${fmtPctNo(summary.contractRate)}% a.a.`, col2, yR); yR += lineH;
-        doc.text(`CDI: ${fmtPctNo(summary.cdiRate)}% a.a.`, col2, yR); yR += lineH;
-        doc.text(`Taxa de Juros Equivalente Mensal: ${fmtPct(summary.monthlyInterestRate)}`, col2, yR); yR += blk;
+        doc.text(`Taxa Contratual: CDI + ${fmtPctNo(summary.contractRate)}% a.a.`, col2, yR);
+        yR += lineH;
+        doc.text(`CDI: ${fmtPctNo(summary.cdiRate)}% a.a.`, col2, yR);
+        yR += lineH;
+        doc.text(`Taxa de Juros Equivalente Mensal: ${fmtPct(summary.monthlyInterestRate)}`, col2, yR);
+        yR += blk;
         yR = sub('Custos Iniciais (Pagos na Liberação)', col2, yR);
         const totalCustos = summary.TAC + summary.ecg + summary.iof + summary.insuranceInstallmentValue;
-        doc.text(`TAC: ${fmtBRL(summary.TAC)}`, col2, yR); yR += lineH;
-        doc.text(`ECG: ${fmtBRL(summary.ecg)}`, col2, yR); yR += lineH;
-        doc.text(`IOF: ${fmtBRL(summary.iof)}`, col2, yR); yR += lineH;
-        doc.text(`1ª Parcela do Prestamista: ${fmtBRL(summary.insuranceInstallmentValue)}`, col2, yR); yR += lineH;
-        doc.setFont('helvetica', 'bold'); doc.text(`Total: ${fmtBRL(totalCustos)}`, col2, yR); doc.setFont('helvetica', 'normal');
+        doc.text(`TAC: ${fmtBRL(summary.TAC)}`, col2, yR);
+        yR += lineH;
+        doc.text(`ECG: ${fmtBRL(summary.ecg)}`, col2, yR);
+        yR += lineH;
+        doc.text(`IOF: ${fmtBRL(summary.iof)}`, col2, yR);
+        yR += lineH;
+        doc.text(`1ª Parcela do Prestamista: ${fmtBRL(summary.insuranceInstallmentValue)}`, col2, yR);
+        yR += lineH;
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Total: ${fmtBRL(totalCustos)}`, col2, yR);
+        doc.setFont('helvetica', 'normal');
         y = Math.max(yL, yR) + 15;
 
         const tableBody = schedule.map(r => [r.index, fmtDate(r.date), fmtBRL(r.capital), fmtBRL(r.interest), fmtBRL(r.insurance), fmtBRL(r.totalPayment), fmtBRL(r.balance)]);
-        const tableFooter = [[{ content: 'TOTAIS', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold' } }, { content: fmtBRL(totals.capital), styles: { halign: 'right', fontStyle: 'bold' } }, { content: fmtBRL(totals.interest), styles: { halign: 'right', fontStyle: 'bold' } }, '', { content: fmtBRL(totals.totalPayment), styles: { halign: 'right', fontStyle: 'bold' } }, '']];
+        const tableFooter = [
+            [{ content: 'TOTAIS', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold' } }, { content: fmtBRL(totals.capital), styles: { halign: 'right', fontStyle: 'bold' } }, { content: fmtBRL(totals.interest), styles: { halign: 'right', fontStyle: 'bold' } }, '', { content: fmtBRL(totals.totalPayment), styles: { halign: 'right', fontStyle: 'bold' } }, '']
+        ];
         doc.autoTable({
             startY: y,
-            head: [['#', 'Data', 'Capital (Amortização)', 'Juros', 'Prestamista', 'Valor a Pagar', 'Saldo Devedor']],
-            body: tableBody, foot: tableFooter, showFoot: 'lastPage', theme: 'grid',
+            head: [
+                ['#', 'Data', 'Capital (Amortização)', 'Juros', 'Prestamista', 'Valor a Pagar', 'Saldo Devedor']
+            ],
+            body: tableBody,
+            foot: tableFooter,
+            showFoot: 'lastPage',
+            theme: 'grid',
             headStyles: { fillColor: [0, 90, 156], textColor: [255, 255, 255], fontStyle: 'bold' },
             footStyles: { fillColor: [229, 239, 245], textColor: [45, 55, 72], fontStyle: 'bold' },
             styles: { fontSize: 7, cellPadding: 2 },
             columnStyles: { 0: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } },
             didDrawPage: (data) => {
-                doc.setFontSize(7); doc.setTextColor(128, 128, 128);
+                doc.setFontSize(7);
+                doc.setTextColor(128, 128, 128);
                 doc.text(`Página ${data.pageNumber}`, pageWidth / 2, doc.internal.pageSize.height - 10, { align: 'center' });
             }
         });
@@ -478,27 +525,22 @@ document.addEventListener('DOMContentLoaded', () => {
         let finalY = doc.lastAutoTable.finalY;
         const pageHeight = doc.internal.pageSize.height;
 
-        const qrCodeImg = document.querySelector('#qr-code img');
-        if (qrCodeImg && qrCodeImg.src) {
-            const qrCodeDataUrl = qrCodeImg.src;
-            const qrWidth = 40, qrHeight = 40;
-            const qrX = (pageWidth - qrWidth) / 2;
-            if (finalY + qrHeight + 20 > pageHeight - bottomMargin) { doc.addPage(); finalY = margin; }
-            finalY += 10;
-            doc.setFontSize(8);
-            doc.text('Leia o QR Code para carregar esta simulação', pageWidth / 2, finalY, { align: 'center' });
-            finalY += 5;
-            doc.addImage(qrCodeDataUrl, 'PNG', qrX, finalY, qrWidth, qrHeight);
-            finalY += qrHeight;
-        }
-
         doc.setFontSize(7);
         const disclaimer = `Esta simulação está sujeita à confirmação e/ou revisão antes do fechamento da operação, uma vez que reflete as condições vigentes de mercado e pode ser alterada a qualquer momento caso ocorram mudanças no cenário macroeconômico nacional e/ou internacional. Nenhuma suposição, projeção ou exemplificação contida neste material deve ser considerada garantia de eventos futuros e/ou de desempenho. Este documento não constitui oferta, convite, promessa de contratação ou qualquer obrigação.`;
         const splitDisclaimer = doc.splitTextToSize(disclaimer, pageWidth - margin * 2);
         const disclaimerHeight = (splitDisclaimer.length * doc.getFontSize()) / doc.internal.scaleFactor;
-        if (finalY + disclaimerHeight + 15 > pageHeight - bottomMargin) { doc.addPage(); finalY = margin; }
-        finalY += 5; doc.setDrawColor(0, 90, 156); doc.setLineWidth(0.5); doc.line(margin, finalY, pageWidth - margin, finalY);
-        finalY += 7; doc.setFont('helvetica', 'normal'); doc.setTextColor(45, 55, 72); doc.text(splitDisclaimer, margin, finalY);
+        if (finalY + disclaimerHeight + 15 > pageHeight - bottomMargin) {
+            doc.addPage();
+            finalY = margin;
+        }
+        finalY += 5;
+        doc.setDrawColor(0, 90, 156);
+        doc.setLineWidth(0.5);
+        doc.line(margin, finalY, pageWidth - margin, finalY);
+        finalY += 7;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(45, 55, 72);
+        doc.text(splitDisclaimer, margin, finalY);
 
         doc.setTextColor(128, 128, 128);
         const footTxt = `Versão ${APP_VERSION} - Aplicação web desenvolvida por Francisco Eliciano. Contato: eliciano@outlook.com.br.`;
