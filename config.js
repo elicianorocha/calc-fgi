@@ -13,7 +13,7 @@
 export const MODO_MANUTENCAO = false;
 
 // Versão da aplicação (exibida no rodapé)
-export const APP_VERSION = '2.3.0';
+export const APP_VERSION = '2.3.1';
 
 
 // --- TABELAS DE CÁLCULO ---
