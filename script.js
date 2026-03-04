@@ -325,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const numInsurancePayments = numGracePayments + (installments - 1);
         const insuranceInstallmentValue = (isInsuranceIncluded && numInsurancePayments > 0) ? totalInsuranceValue / numInsurancePayments : 0;
         const ecgN = Math.floor(totalTermDays / 30);
-        const ecg = 0.4 * (0.8 * kFactor * loanAmount * ecgN);
+        const ecg = 0.6 * (0.8 * kFactor * loanAmount * ecgN);
         const paymentSchedule = [];
         const cashFlow = [];
         paymentSchedule.push({ index: 0, date: proposalDate, capital: 0, interest: 0, insurance: insuranceInstallmentValue, totalPayment: 0, balance: loanAmount });
